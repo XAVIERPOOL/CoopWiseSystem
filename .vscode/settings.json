@@ -8,14 +8,29 @@
             },
             "ssh": "Disabled",
             "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "coopwise_local",
+            "database": "postgres",
+            "username": "admin123"
+        },
+        {
+            "pgOptions": {
+                "ssl": {
+                    "rejectUnauthorized": true
+                }
+            },
+            "ssh": "Disabled",
+            "previewLimit": 50,
             "server": "ep-bitter-wind-ahmkbam6.c-3.us-east-1.aws.neon.tech",
             "port": 5432,
             "driver": "PostgreSQL",
-            "name": "coopwiseDB",
-            "database": "neondb",
+            "name": "coopwiseDB1",
+             "database": "neondb",
             "username": "neondb_owner"
         },
-        {
+       {
             "pgOptions": {
                 "ssl": {
                     "rejectUnauthorized": true

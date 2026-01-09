@@ -67,7 +67,7 @@ const Reports = () => {
 
   const complianceReports = [
     {
-      cooperative: 'Northern Luzon Cooperative',
+      cooperative: 'Naciatrasco Cooperative',
       totalOfficers: 12,
       compliant: 8,
       partiallyCompliant: 3,
@@ -75,7 +75,7 @@ const Reports = () => {
       complianceRate: 67
     },
     {
-      cooperative: 'Central Visayas Cooperative',
+      cooperative: 'Capatrasco Cooperative',
       totalOfficers: 15,
       compliant: 12,
       partiallyCompliant: 2,
@@ -83,7 +83,7 @@ const Reports = () => {
       complianceRate: 80
     },
     {
-      cooperative: 'Mindanao Farmers Cooperative',
+      cooperative: 'Arise Cooperative',
       totalOfficers: 18,
       compliant: 15,
       partiallyCompliant: 2,

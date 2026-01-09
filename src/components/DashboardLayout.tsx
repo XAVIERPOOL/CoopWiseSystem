@@ -16,11 +16,12 @@ export function DashboardLayout({ children, title, description }: DashboardLayou
   const userName = localStorage.getItem('userName') || 'User';
 
   useEffect(() => {
+    // Security Check: if there is no userole kick them out to login page //
     if (!userRole) {
       navigate('/login');
     }
   }, [userRole, navigate]);
-
+// Dounle protection: Do not render the page if they are not logged in //
   if (!userRole) {
     return null;
   }
