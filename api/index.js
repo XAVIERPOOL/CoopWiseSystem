@@ -32,7 +32,14 @@ pool.query('SELECT NOW()', (err, res) => {
 
 app.get('/api/profiles', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM profiles ORDER BY full_name');
+    // Arangged the profiles name to first name middle name last name order//
+
+    const result = await pool.query(`
+      SELECT *, 
+      TRIM(BOTH ' ' FROM CONCAT(first_name, ' ', middle_name, ' ', last_name)) as full_name 
+      FROM profiles 
+      ORDER BY last_name, first_name
+    `);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching profiles:', error);
@@ -43,7 +50,12 @@ app.get('/api/profiles', async (req, res) => {
 app.get('/api/profiles/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('SELECT * FROM profiles WHERE id = $1', [id]);
+    const result = await pool.query(`
+      SELECT *, 
+      TRIM(BOTH ' ' FROM CONCAT(first_name, ' ', middle_name, ' ', last_name)) as full_name 
+      FROM profiles 
+      WHERE id = $1
+    `, [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Profile not found' });
     }
@@ -154,7 +166,7 @@ app.delete('/api/trainings/:id', async (req, res) => {
 app.get('/api/training-registrations', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT tr.*, p.full_name as officer_name, t.title as training_title
+      SELECT tr.*, TRIM(BOTH '' FROM CONCAT(p.first_name, ' '. p.middle_name, ' ', p.last_name)) as officer_name, t.title as training_title
       FROM training_registrations tr
       LEFT JOIN profiles p ON tr.officer_id = p.id
       LEFT JOIN trainings t ON tr.training_id = t.id
@@ -171,7 +183,7 @@ app.get('/api/training-registrations/training/:training_id', async (req, res) =>
   try {
     const { training_id } = req.params;
     const result = await pool.query(`
-      SELECT tr.*, p.full_name, p.username, p.position, p.cooperative
+      SELECT tr.*, TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as full_name, p.username, p.position, p.cooperative
       FROM training_registrations tr
       JOIN profiles p ON tr.officer_id = p.id
       WHERE tr.training_id = $1
@@ -242,7 +254,7 @@ app.post('/api/training-registrations/enroll-with-companions', async (req, res) 
 app.get('/api/attendance', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT a.*, p.full_name as officer_name, t.title as training_title
+      SELECT a.*, TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as officer_name, t.title as training_title
       FROM attendance a
       LEFT JOIN profiles p ON a.officer_id = p.id
       LEFT JOIN trainings t ON a.training_id = t.id
@@ -307,7 +319,9 @@ app.post('/api/attendance', async (req, res) => {
 app.get('/api/companion-registrations', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT cr.*, p.full_name as officer_name, t.title as training_title
+      SELECT cr.*, 
+      TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as officer_name, 
+      t.title as training_title
       FROM companion_registrations cr
       LEFT JOIN profiles p ON cr.officer_id = p.id
       LEFT JOIN trainings t ON cr.training_id = t.id
@@ -340,7 +354,9 @@ app.get('/api/companion-registrations/training/:trainingId', async (req, res) =>
   try {
     const { trainingId } = req.params;
     const result = await pool.query(`
-      SELECT cr.*, p.full_name as officer_name, t.title as training_title
+      SELECT cr.*, 
+      TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as officer_name, 
+      t.title as training_title
       FROM companion_registrations cr
       LEFT JOIN profiles p ON cr.officer_id = p.id
       LEFT JOIN trainings t ON cr.training_id = t.id
@@ -359,7 +375,8 @@ app.get('/api/companion-registrations/training/:trainingId', async (req, res) =>
 app.get('/api/training-suggestions', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT ts.*, p.full_name as officer_name
+      SELECT ts.*, 
+      TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as officer_name
       FROM training_suggestions ts
       LEFT JOIN profiles p ON ts.officer_id = p.id
       ORDER BY ts.created_at DESC

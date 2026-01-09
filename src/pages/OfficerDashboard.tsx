@@ -16,10 +16,12 @@ import {
   Lightbulb,
   Plus
 } from 'lucide-react';
-
+// Updating the Officer Name to allign with the DATABASE CHANGES //
 interface Officer {
   id: number;
-  name: string;
+  first_name: string;
+  middle_name: string;
+  last_name: string;
   email: string;
   cooperative: string;
   position: string;
@@ -35,10 +37,12 @@ const OfficerDashboard = () => {
   const navigate = useNavigate();
   
   const userEmail = localStorage.getItem('userName') + '@coopwise.com' || 'officer@coopwise.com';
-  
+  // Name rearranged to first name middle name last name order //
   const currentOfficer: Officer = {
     id: 2,
-    name: 'Maria Elena Rodriguez',
+    first_name: 'Maria',
+    middle_name: 'Elena',
+    last_name: 'Rodriguez',
     email: userEmail,
     cooperative: 'Northern Luzon Cooperative',
     position: 'Secretary',
@@ -75,7 +79,8 @@ const OfficerDashboard = () => {
         return <AlertCircle className="h-4 w-4 text-gray-600" />;
     }
   };
-
+//Helper to display full name//
+const displayFullName = `${currentOfficer.first_name} ${currentOfficer.middle_name} ${currentOfficer.last_name}`;
   return (
     <DashboardLayout title="My Compliance Dashboard" description="View your training compliance status">
       <div className="p-6 max-w-4xl mx-auto">
@@ -87,7 +92,8 @@ const OfficerDashboard = () => {
                   <User className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">{currentOfficer.name}</h2>
+                  {/* Displaying the full name in first name middle name last name order */}
+                  <h2 className="text-2xl font-bold text-gray-900">{displayFullName}</h2>
                   <p className="text-gray-600 flex items-center mt-1">
                     <Mail className="h-4 w-4 mr-2" />
                     {currentOfficer.email}
