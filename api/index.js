@@ -15,7 +15,6 @@ app.use(express.json());
 const { Pool } = pg;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // SSL is required for Neon/Supabase in production, but we disable it for local dev if needed
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
@@ -32,8 +31,7 @@ pool.query('SELECT NOW()', (err, res) => {
 
 app.get('/api/profiles', async (req, res) => {
   try {
-    // Arangged the profiles name to first name middle name last name order//
-
+    // UPDATED: Construct full_name and sort by last_name
     const result = await pool.query(`
       SELECT *, 
       TRIM(BOTH ' ' FROM CONCAT(first_name, ' ', middle_name, ' ', last_name)) as full_name 
@@ -50,12 +48,14 @@ app.get('/api/profiles', async (req, res) => {
 app.get('/api/profiles/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    // UPDATED: Construct full_name
     const result = await pool.query(`
       SELECT *, 
       TRIM(BOTH ' ' FROM CONCAT(first_name, ' ', middle_name, ' ', last_name)) as full_name 
       FROM profiles 
       WHERE id = $1
     `, [id]);
+    
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Profile not found' });
     }
@@ -109,22 +109,67 @@ app.get('/api/trainings/:id', async (req, res) => {
   }
 });
 
-app.post('/api/trainings', async (req, res) => {
+app.put('/api/trainings/:id', async (req, res) => {
+  const client = await pool.connect();
   try {
-    const { training_id, title, topic, date, start_date, end_date, time, venue, speaker, capacity, status } = req.body;
-    const result = await pool.query(
-      `INSERT INTO trainings (training_id, title, topic, date, start_date, end_date, time, venue, speaker, capacity, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    await client.query('BEGIN');
+    
+    const { id } = req.params;
+    const { title, topic, date, start_date, end_date, time, venue, speaker, capacity, status, updated_by } = req.body;
+    
+    // 1. Fetch old data to make a descriptive log
+    const oldData = await client.query('SELECT title, status FROM trainings WHERE id = $1', [id]);
+    const oldTitle = oldData.rows[0]?.title || 'Training';
+    const oldStatus = oldData.rows[0]?.status;
+
+    // 2. Perform the Update
+    const result = await client.query(
+      `UPDATE trainings
+       SET title = $1, topic = $2, date = $3, start_date = $4, end_date = $5, time = $6,
+           venue = $7, speaker = $8, capacity = $9, status = $10, updated_at = NOW()
+       WHERE id = $11
        RETURNING *`,
-      [training_id, title, topic, date, start_date, end_date, time, venue, speaker, capacity, status || 'upcoming']
+      [title, topic, date, start_date, end_date, time, venue, speaker, capacity, status, id]
     );
-    res.status(201).json(result.rows[0]);
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Training not found' });
+    }
+
+    // 3. LOG THE ACTIVITY (Only if updated_by is provided)
+    if (updated_by) {
+      const userRes = await client.query('SELECT first_name, middle_name, last_name FROM profiles WHERE id = $1', [updated_by]);
+      let userName = 'Unknown User';
+      
+      if (userRes.rows.length > 0) {
+        const p = userRes.rows[0];
+        userName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ');
+      }
+
+      // Create a description (e.g., "Changed status of Seminar A from upcoming to ongoing")
+      let description = `Updated details for training: ${oldTitle}`;
+      if (oldStatus !== status) {
+        description = `Changed status of ${oldTitle} from ${oldStatus} to ${status}`;
+      }
+
+      await client.query(
+        `INSERT INTO activity_logs (user_id, user_name, action, module, description, target_id)
+         VALUES ($1, $2, 'UPDATE', 'Training', $3, $4)`,
+        [updated_by, userName, description, id]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating training:', error);
-    res.status(500).json({ error: 'Failed to create training' });
+    await client.query('ROLLBACK');
+    console.error('Error updating training:', error);
+    res.status(500).json({ error: 'Failed to update training' });
+  } finally {
+    client.release();
   }
 });
-
 app.put('/api/trainings/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -165,8 +210,11 @@ app.delete('/api/trainings/:id', async (req, res) => {
 
 app.get('/api/training-registrations', async (req, res) => {
   try {
+    // UPDATED: Use CONCAT instead of p.full_name
     const result = await pool.query(`
-      SELECT tr.*, TRIM(BOTH '' FROM CONCAT(p.first_name, ' '. p.middle_name, ' ', p.last_name)) as officer_name, t.title as training_title
+      SELECT tr.*, 
+      TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as officer_name, 
+      t.title as training_title
       FROM training_registrations tr
       LEFT JOIN profiles p ON tr.officer_id = p.id
       LEFT JOIN trainings t ON tr.training_id = t.id
@@ -182,8 +230,11 @@ app.get('/api/training-registrations', async (req, res) => {
 app.get('/api/training-registrations/training/:training_id', async (req, res) => {
   try {
     const { training_id } = req.params;
+    // UPDATED: Use CONCAT instead of p.full_name
     const result = await pool.query(`
-      SELECT tr.*, TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as full_name, p.username, p.position, p.cooperative
+      SELECT tr.*, 
+      TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as full_name, 
+      p.username, p.position, p.cooperative
       FROM training_registrations tr
       JOIN profiles p ON tr.officer_id = p.id
       WHERE tr.training_id = $1
@@ -253,8 +304,11 @@ app.post('/api/training-registrations/enroll-with-companions', async (req, res) 
 
 app.get('/api/attendance', async (req, res) => {
   try {
+    // UPDATED: Use CONCAT instead of p.full_name
     const result = await pool.query(`
-      SELECT a.*, TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as officer_name, t.title as training_title
+      SELECT a.*, 
+      TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as officer_name, 
+      t.title as training_title
       FROM attendance a
       LEFT JOIN profiles p ON a.officer_id = p.id
       LEFT JOIN trainings t ON a.training_id = t.id
@@ -318,6 +372,7 @@ app.post('/api/attendance', async (req, res) => {
 
 app.get('/api/companion-registrations', async (req, res) => {
   try {
+    // UPDATED: Use CONCAT instead of p.full_name
     const result = await pool.query(`
       SELECT cr.*, 
       TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as officer_name, 
@@ -353,6 +408,7 @@ app.post('/api/companion-registrations', async (req, res) => {
 app.get('/api/companion-registrations/training/:trainingId', async (req, res) => {
   try {
     const { trainingId } = req.params;
+    // UPDATED: Use CONCAT instead of p.full_name
     const result = await pool.query(`
       SELECT cr.*, 
       TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as officer_name, 
@@ -374,6 +430,7 @@ app.get('/api/companion-registrations/training/:trainingId', async (req, res) =>
 
 app.get('/api/training-suggestions', async (req, res) => {
   try {
+    // UPDATED: Use CONCAT instead of p.full_name
     const result = await pool.query(`
       SELECT ts.*, 
       TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as officer_name
@@ -965,17 +1022,34 @@ app.put('/api/compliance/:id', async (req, res) => {
   }
 });
 
-app.patch('/api/compliance/:id/status', async (req, res) => {
+// ===== ACTIVITY LOGS API =====
+
+app.get('/api/activity-logs', async (req, res) => {
   try {
+    const result = await pool.query('SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 100');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching logs:', error);
+    res.status(500).json({ error: 'Failed to fetch activity logs' });
+  }
+});
+
+// UPDATED COMPLIANCE STATUS WITH LOGGING
+app.patch('/api/compliance/:id/status', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
     const { id } = req.params;
     const { status, reviewer_notes, reviewed_by, submitted_date } = req.body;
     
-    const validStatuses = ['pending', 'submitted', 'compliant', 'non_compliant', 'overdue'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
-    }
-    
-    const result = await pool.query(
+    // 1. Get the Old Status first (for comparison)
+    const oldRecordRes = await client.query('SELECT status, requirement_name FROM compliance_records WHERE id = $1', [id]);
+    const oldStatus = oldRecordRes.rows[0]?.status || 'Unknown';
+    const requirementName = oldRecordRes.rows[0]?.requirement_name || 'Requirement';
+
+    // 2. Perform the Update
+    const result = await client.query(
       `UPDATE compliance_records SET 
         status = $1, reviewer_notes = $2, reviewed_by = $3, reviewed_at = NOW(),
         submitted_date = $4, updated_at = NOW()
@@ -985,12 +1059,37 @@ app.patch('/api/compliance/:id/status', async (req, res) => {
     );
     
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Compliance record not found' });
     }
+
+    // 3. LOG THE ACTIVITY
+    // Fetch the Admin's name using the ID provided in the request
+    const adminRes = await client.query('SELECT first_name, last_name FROM profiles WHERE id = $1', [reviewed_by]);
+    let adminName = 'System Admin';
+    
+    if (adminRes.rows.length > 0) {
+      const p = adminRes.rows[0];
+      // Construct the full name from parts
+      adminName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ');
+    }
+
+    const description = `Updated ${requirementName} from ${oldStatus} to ${status}`;
+    
+    await client.query(
+      `INSERT INTO activity_logs (user_id, user_name, action, module, description, target_id)
+       VALUES ($1, $2, 'UPDATE', 'Compliance', $3, $4)`,
+      [reviewed_by, adminName, description, id]
+    );
+
+    await client.query('COMMIT');
     res.json(result.rows[0]);
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Error updating compliance status:', error);
     res.status(500).json({ error: 'Failed to update compliance status' });
+  } finally {
+    client.release();
   }
 });
 

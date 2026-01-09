@@ -26,12 +26,20 @@ import {
   LogOut,
   BookOpen,
   CheckCircle,
+  Activity,
+  LucideIcon
 } from 'lucide-react';
 import nccdoLogo from '../../attached_assets/462853451_531127746179171_9134722409661138434_n_1762934895081.jpg';
 
 interface AppSidebarProps {
   userRole: string;
   userName: string;
+}
+
+interface MenuItem {
+  title: string;
+  icon: LucideIcon;
+  url: string;
 }
 
 export function AppSidebar({ userRole, userName }: AppSidebarProps) {
@@ -44,80 +52,66 @@ export function AppSidebar({ userRole, userName }: AppSidebarProps) {
     navigate('/login');
   };
 
-  const adminMenuItems = [
-    {
-      title: "Dashboard",
-      icon: LayoutDashboard,
-      url: "/dashboard",
-    },
-    {
-      title: "Cooperative Registration",
-      icon: Building2,
-      url: "/cooperative-registration",
-    },
-    {
-      title: "Membership Profiling",
-      icon: UserPlus,
-      url: "/membership-profiling",
-    },
-    {
-      title: "Training Management",
-      icon: GraduationCap,
-      url: "/training-management",
-    },
-    {
-      title: "Regulatory Compliance",
-      icon: ClipboardCheck,
-      url: "/regulatory-compliance",
-    },
-    {
-      title: "Compliance Tracker",
-      icon: Users,
-      url: "/compliance-tracker",
-    },
-    {
-      title: "Attendance",
-      icon: Calendar,
-      url: "/attendance",
-    },
-    {
-      title: "Training Suggestions",
-      icon: Lightbulb,
-      url: "/training-suggestions",
-    },
-    {
-      title: "Reports",
-      icon: BarChart3,
-      url: "/reports",
-    },
+// 1. ADMIN POV (EVERYTHING)
+const adminMenuItems: MenuItem[] = [
+  { title: "Dashboard", icon: LayoutDashboard, url:"/dashboard"},
+  { title: "Cooperative Registration", icon: Building2, url:"/cooperative-registration"},
+  { title: "Membership Profiling", icon: Users, url:"/membership-profiling"},
+  { title: "Training Management", icon: GraduationCap, url:"/training-management"},
+  { title: "Regulatory Compliance", icon: ClipboardCheck, url:"/regulatory-compliance"},
+  { title: "Compliance Tracker", icon: Users, url:"/compliance-tracker"},
+  { title: "Attendance", icon: Calendar, url:"/attendance"},
+  { title: "Training Suggestions", icon: Lightbulb, url: "/training-suggestions" },
+    { title: "Reports", icon: BarChart3, url: "/reports" },
+    { title: "Audit Logs", icon: Activity, url: "/logs" }, // Only the admin have access to all these modules
   ];
 
-  const officerMenuItems = [
-    {
-      title: "Dashboard",
-      icon: LayoutDashboard,
-      url: "/dashboard",
-    },
-    {
-      title: "My Compliance",
-      icon: CheckCircle,
-      url: "/officer-dashboard",
-    },
-    {
-      title: "Available Trainings",
-      icon: BookOpen,
-      url: "/available-trainings",
-    },
-    {
-      title: "My Attendance",
-      icon: Calendar,
-      url: "/my-attendance",
-    },
+  // 2. TRAINING HEAD POV (TRAINING&SEMINAR MODULE)
+  const trainingHeadMenuItems: MenuItem[] = [
+    { title: "Dashboard", icon: LayoutDashboard, url:"/dashboard"},
+    { title: "Training Management", icon: GraduationCap, url:"/training-management"},
+    { title: "Attendance", icon: Calendar, url:"/attendance"},
+    { title: "Training Suggestions", icon: Lightbulb, url: "/training-suggestions" },
+    { title: "Reports", icon: BarChart3, url: "/reports" },
   ];
 
-  const menuItems = userRole === 'administrator' ? adminMenuItems : officerMenuItems;
+  // 3. REGULATORY COMPLIANCE HEAD POV (REGULATORY COMPLIANCE MODULE )
+  const complianceHeadMenuItems: MenuItem[] = [
+    { title: "Dashboard", icon: LayoutDashboard, url: "/dashboard" },
+    { title: "Cooperative Registration", icon: Building2, url: "/cooperative-registration" },
+    { title: "Membership Profiling", icon: UserPlus, url: "/membership-profiling" },
+    { title: "Regulatory Compliance", icon: ClipboardCheck, url: "/regulatory-compliance" },
+    { title: "Compliance Tracker", icon: Users, url: "/compliance-tracker" },
+    { title: "Reports", icon: BarChart3, url: "/reports" },
+  ];
 
-  return (
+  // 4. MEMBER/COOPERATIVE POV (OFFICER POV)
+  const officerMenuItems: MenuItem[] = [
+    { title: "Dashboard", icon: LayoutDashboard, url: "/dashboard" },
+    { title: "My Compliance", icon: CheckCircle, url: "/officer-dashboard" },
+    { title: "Available Trainings", icon: BookOpen, url: "/available-trainings" },
+    { title: "My Attendance", icon: Calendar, url: "/my-attendance" },
+  ];
+
+  // Based module roles
+  const getMenuItems = (): MenuItem[] => {
+    switch (userRole) {
+      case 'administrator':
+        return adminMenuItems;
+        case 'training_head':
+        return trainingHeadMenuItems;
+      case 'compliance_head':
+        return complianceHeadMenuItems;
+      case 'officer':
+        return officerMenuItems;
+    }
+  };
+  
+  const menuItems = getMenuItems();
+
+  const displayRole = (userRole || 'officer').replace(/_/g, ' ');
+
+ return (
     <Sidebar className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
@@ -135,8 +129,8 @@ export function AppSidebar({ userRole, userName }: AppSidebarProps) {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60">
-            {userRole === 'administrator' ? 'Administration' : 'Officer Portal'}
+          <SidebarGroupLabel className="text-sidebar-foreground/60 capitalize">
+            {displayRole} Portal
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -153,7 +147,6 @@ export function AppSidebar({ userRole, userName }: AppSidebarProps) {
                         e.preventDefault();
                         navigate(item.url);
                       }}
-                      data-testid={`sidebar-link-${item.url.replace('/', '')}`}
                     >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
@@ -175,9 +168,11 @@ export function AppSidebar({ userRole, userName }: AppSidebarProps) {
               </span>
             </div>
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-sm font-medium text-sidebar-foreground truncate">{userName}</span>
-              <Badge variant="outline" className="w-fit text-xs capitalize bg-sidebar-accent text-sidebar-accent-foreground border-sidebar-border">
-                {userRole}
+              <span className="text-sm font-medium text-sidebar-foreground truncate" title={userName}>
+                {userName}
+              </span>
+              <Badge variant="outline" className="w-fit text-[10px] capitalize bg-sidebar-accent text-sidebar-accent-foreground border-sidebar-border truncate max-w-full">
+                {displayRole}
               </Badge>
             </div>
           </div>
@@ -186,7 +181,6 @@ export function AppSidebar({ userRole, userName }: AppSidebarProps) {
             size="sm"
             onClick={handleLogout}
             className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-            data-testid="button-logout"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logout

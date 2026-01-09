@@ -216,7 +216,7 @@ const TrainingManagement = () => {
     return `TRN-${year}-${random}`;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+ const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.title || !formData.start_date || !formData.venue) {
@@ -229,6 +229,9 @@ const TrainingManagement = () => {
     }
 
     try {
+      // --- GET THE CURRENT USER ID ---
+      const currentUserId = localStorage.getItem('userId'); 
+
       if (editingTraining) {
         // Update existing training
         const { error } = await api.updateTraining(editingTraining.id, {
@@ -241,7 +244,8 @@ const TrainingManagement = () => {
           venue: formData.venue,
           capacity: parseInt(formData.capacity) || 30,
           speaker: formData.speaker,
-          status: formData.status
+          status: formData.status,
+          updated_by: currentUserId // <--- ADD THIS LINE HERE
         });
 
         if (error) throw error;
@@ -264,6 +268,7 @@ const TrainingManagement = () => {
           capacity: parseInt(formData.capacity) || 30,
           speaker: formData.speaker,
           status: formData.status
+          // You can also add created_by: currentUserId here if you update the POST endpoint later
         });
 
         if (error) throw error;
