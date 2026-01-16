@@ -221,11 +221,15 @@ const CooperativeRegistration = () => {
 
     setSubmitting(true);
     try {
+      // --- FIX: Get the actual logged-in user's ID ---
+      const currentUserId = localStorage.getItem('userId');
+
       const { error } = await api.updateCooperativeStatus(selectedCooperative.id, {
         status,
         review_notes: reviewNotes,
-        reviewed_by: '11111111-1111-1111-1111-111111111111',
+        reviewed_by: currentUserId, // <--- Now sends the correct ID to the backend
       });
+      
       if (error) throw error;
 
       toast({

@@ -52,25 +52,25 @@ export function AppSidebar({ userRole, userName }: AppSidebarProps) {
     navigate('/login');
   };
 
-// 1. ADMIN POV (EVERYTHING)
-const adminMenuItems: MenuItem[] = [
-  { title: "Dashboard", icon: LayoutDashboard, url:"/dashboard"},
-  { title: "Cooperative Registration", icon: Building2, url:"/cooperative-registration"},
-  { title: "Membership Profiling", icon: Users, url:"/membership-profiling"},
-  { title: "Training Management", icon: GraduationCap, url:"/training-management"},
-  { title: "Regulatory Compliance", icon: ClipboardCheck, url:"/regulatory-compliance"},
-  { title: "Compliance Tracker", icon: Users, url:"/compliance-tracker"},
-  { title: "Attendance", icon: Calendar, url:"/attendance"},
-  { title: "Training Suggestions", icon: Lightbulb, url: "/training-suggestions" },
+  // 1. ADMIN POV (EVERYTHING)
+  const adminMenuItems: MenuItem[] = [
+    { title: "Dashboard", icon: LayoutDashboard, url: "/dashboard" },
+    { title: "Cooperative Registration", icon: Building2, url: "/cooperative-registration" },
+    { title: "Membership Profiling", icon: Users, url: "/membership-profiling" },
+    { title: "Training Management", icon: GraduationCap, url: "/training-management" },
+    { title: "Regulatory Compliance", icon: ClipboardCheck, url: "/regulatory-compliance" },
+
+    { title: "Attendance", icon: Calendar, url: "/attendance" },
+    { title: "Training Suggestions", icon: Lightbulb, url: "/training-suggestions" },
     { title: "Reports", icon: BarChart3, url: "/reports" },
     { title: "Audit Logs", icon: Activity, url: "/logs" }, // Only the admin have access to all these modules
   ];
 
   // 2. TRAINING HEAD POV (TRAINING&SEMINAR MODULE)
   const trainingHeadMenuItems: MenuItem[] = [
-    { title: "Dashboard", icon: LayoutDashboard, url:"/dashboard"},
-    { title: "Training Management", icon: GraduationCap, url:"/training-management"},
-    { title: "Attendance", icon: Calendar, url:"/attendance"},
+    { title: "Dashboard", icon: LayoutDashboard, url: "/dashboard" },
+    { title: "Training Management", icon: GraduationCap, url: "/training-management" },
+    { title: "Attendance", icon: Calendar, url: "/attendance" },
     { title: "Training Suggestions", icon: Lightbulb, url: "/training-suggestions" },
     { title: "Reports", icon: BarChart3, url: "/reports" },
   ];
@@ -81,7 +81,7 @@ const adminMenuItems: MenuItem[] = [
     { title: "Cooperative Registration", icon: Building2, url: "/cooperative-registration" },
     { title: "Membership Profiling", icon: UserPlus, url: "/membership-profiling" },
     { title: "Regulatory Compliance", icon: ClipboardCheck, url: "/regulatory-compliance" },
-    { title: "Compliance Tracker", icon: Users, url: "/compliance-tracker" },
+
     { title: "Reports", icon: BarChart3, url: "/reports" },
   ];
 
@@ -98,7 +98,7 @@ const adminMenuItems: MenuItem[] = [
     switch (userRole) {
       case 'administrator':
         return adminMenuItems;
-        case 'training_head':
+      case 'training_head':
         return trainingHeadMenuItems;
       case 'compliance_head':
         return complianceHeadMenuItems;
@@ -106,12 +106,12 @@ const adminMenuItems: MenuItem[] = [
         return officerMenuItems;
     }
   };
-  
+
   const menuItems = getMenuItems();
 
   const displayRole = (userRole || 'officer').replace(/_/g, ' ');
 
- return (
+  return (
     <Sidebar className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">

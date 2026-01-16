@@ -109,6 +109,54 @@ app.get('/api/trainings/:id', async (req, res) => {
   }
 });
 
+app.post('/api/trainings', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { training_id, title, topic, date, start_date, end_date, time, venue, speaker, capacity, status, created_by } = req.body;
+    
+    // Ensure capacity is an integer
+    const capacityInt = parseInt(capacity) || 0;
+    
+    // Handle time: ensure it's null if empty string
+    const timeValue = time && time.trim() !== '' ? time : null;
+
+    const result = await client.query(
+      `INSERT INTO trainings (training_id, title, topic, date, start_date, end_date, time, venue, speaker, capacity, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING *`,
+      [training_id, title, topic, date, start_date, end_date, timeValue, venue, speaker, capacityInt, status || 'upcoming']
+    );
+
+    // LOG ACTIVITY
+    if (created_by) {
+      const userRes = await client.query('SELECT first_name, middle_name, last_name FROM profiles WHERE id = $1', [created_by]);
+      let userName = 'Unknown User';
+      
+      if (userRes.rows.length > 0) {
+        const p = userRes.rows[0];
+        userName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ');
+      }
+
+      await client.query(
+        `INSERT INTO activity_logs (user_id, user_name, action, module, description, target_id)
+         VALUES ($1, $2, 'CREATE', 'Training', $3, $4)`,
+        [created_by, userName, `Created new training: ${title}`, result.rows[0].id]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating training:', error);
+    res.status(500).json({ error: 'Failed to create training' });
+  } finally {
+    client.release();
+  }
+});
+
 app.put('/api/trainings/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -170,27 +218,7 @@ app.put('/api/trainings/:id', async (req, res) => {
     client.release();
   }
 });
-app.put('/api/trainings/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { title, topic, date, start_date, end_date, time, venue, speaker, capacity, status } = req.body;
-    const result = await pool.query(
-      `UPDATE trainings
-       SET title = $1, topic = $2, date = $3, start_date = $4, end_date = $5, time = $6,
-           venue = $7, speaker = $8, capacity = $9, status = $10, updated_at = NOW()
-       WHERE id = $11
-       RETURNING *`,
-      [title, topic, date, start_date, end_date, time, venue, speaker, capacity, status, id]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Training not found' });
-    }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error updating training:', error);
-    res.status(500).json({ error: 'Failed to update training' });
-  }
-});
+
 
 app.delete('/api/trainings/:id', async (req, res) => {
   try {
@@ -669,31 +697,60 @@ app.put('/api/cooperatives/:id', async (req, res) => {
   }
 });
 
-app.patch('/api/cooperatives/:id/status', async (req, res) => {
+// UPDATED COOPERATIVE STATUS WITH LOGGING
+// UPDATED MEMBER STATUS WITH LOGGING
+app.patch('/api/members/:id/status', async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+    
     const { id } = req.params;
-    const { status, review_notes, reviewed_by } = req.body;
+    const { status, review_notes, reviewed_by, membership_date } = req.body;
     
-    const validStatuses = ['pending', 'approved', 'rejected', 'needs_resubmission'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
-    }
-    
-    const result = await pool.query(
-      `UPDATE cooperatives SET 
-        status = $1, review_notes = $2, reviewed_by = $3, reviewed_at = NOW(), updated_at = NOW()
-       WHERE id = $4
+    // 1. Get Member Name
+    const oldRes = await client.query('SELECT first_name, last_name, status FROM members WHERE id = $1', [id]);
+    const memberName = `${oldRes.rows[0]?.first_name} ${oldRes.rows[0]?.last_name}`;
+    const oldStatus = oldRes.rows[0]?.status;
+
+    // 2. Update Status
+    const result = await client.query(
+      `UPDATE members SET 
+        status = $1, review_notes = $2, reviewed_by = $3, reviewed_at = NOW(),
+        membership_date = $4, updated_at = NOW()
+       WHERE id = $5
        RETURNING *`,
-      [status, review_notes, reviewed_by, id]
+      [status, review_notes, reviewed_by, status === 'approved' ? membership_date || new Date().toISOString().split('T')[0] : null, id]
     );
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Cooperative not found' });
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Member not found' });
     }
+
+    // 3. LOG ACTIVITY
+    if (reviewed_by) {
+      const adminRes = await client.query('SELECT first_name, middle_name, last_name FROM profiles WHERE id = $1', [reviewed_by]);
+      let adminName = 'System Admin';
+      if (adminRes.rows.length > 0) {
+        const p = adminRes.rows[0];
+        adminName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ');
+      }
+
+      await client.query(
+        `INSERT INTO activity_logs (user_id, user_name, action, module, description, target_id)
+         VALUES ($1, $2, 'UPDATE', 'Membership', $3, $4)`,
+        [reviewed_by, adminName, `Updated membership for ${memberName} from ${oldStatus} to ${status}`, id]
+      );
+    }
+
+    await client.query('COMMIT');
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating cooperative status:', error);
-    res.status(500).json({ error: 'Failed to update cooperative status' });
+    await client.query('ROLLBACK');
+    console.error('Error updating member status:', error);
+    res.status(500).json({ error: 'Failed to update member status' });
+  } finally {
+    client.release();
   }
 });
 
@@ -886,8 +943,9 @@ app.delete('/api/members/:id', async (req, res) => {
 app.get('/api/compliance', async (req, res) => {
   try {
     const { status, cooperative_id, year } = req.query;
+    // UPDATED QUERY: Now selects "c.type as cooperative_type"
     let query = `
-      SELECT cr.*, c.name as cooperative_name, c.coop_id
+      SELECT cr.*, c.name as cooperative_name, c.coop_id, c.type as cooperative_type
       FROM compliance_records cr
       LEFT JOIN cooperatives c ON cr.cooperative_id = c.id
       WHERE 1=1
