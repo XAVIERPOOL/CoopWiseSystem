@@ -21,11 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { 
   Building2,
   Plus,
@@ -132,13 +127,14 @@ const CooperativeRegistration = () => {
   const [cooperatives, setCooperatives] = useState<Cooperative[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    pending: true,
-    needs_resubmission: true,
-    approved: true,
-    rejected: false,
-  });
+  const [activeTab, setActiveTab] = useState('pending');
   
+  // File upload states for Step 4
+  const [documents, setDocuments] = useState({
+    cda_certificate: null as File | null,
+    articles_of_cooperation: null as File | null,
+    valid_id: null as File | null,
+  });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showReviewDialog, setShowReviewDialog] = useState(false);
@@ -296,14 +292,22 @@ const CooperativeRegistration = () => {
       contact_email: '',
       contact_phone: '',
     });
+    setDocuments({
+      cda_certificate: null,
+      articles_of_cooperation: null,
+      valid_id: null,
+    });
     setCurrentStep(1);
   };
 
-  const toggleSection = (status: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [status]: !prev[status],
-    }));
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    if (e.target.files && e.target.files[0]) {
+      setDocuments({ ...documents, [field]: e.target.files[0] });
+    }
+  };
+
+  const removeFile = (field: string) => {
+    setDocuments({ ...documents, [field]: null });
   };
 
   const filteredCooperatives = cooperatives.filter(coop =>
@@ -359,113 +363,129 @@ const CooperativeRegistration = () => {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           </div>
         ) : (
-          <div className="space-y-4">
-            {STATUS_ORDER.map(status => {
-              const config = STATUS_CONFIG[status];
-              const StatusIcon = config.icon;
-              const items = groupedCooperatives[status] || [];
+          <div className="space-y-6">
+            <div className="bg-gray-50/80 p-1.5 rounded-full border border-gray-200/60 overflow-x-auto shadow-sm">
+              <div className="flex w-max min-w-full justify-between gap-1 items-center px-1">
+                {STATUS_ORDER.map(status => {
+                  const config = STATUS_CONFIG[status];
+                  const count = groupedCooperatives[status]?.length || 0;
+                  const isActive = activeTab === status;
+                  
+                  return (
+                    <button
+                      key={status}
+                      onClick={() => setActiveTab(status)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-full text-sm font-semibold transition-all duration-200
+                        ${isActive 
+                          ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50 transform scale-[1.02]' 
+                          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+                        }`}
+                    >
+                      {config.label}
+                      <Badge 
+                        variant="secondary" 
+                        className={`ml-1 px-1.5 py-0 min-w-[1.25rem] text-[10px] items-center justify-center rounded-sm leading-none border-none
+                          ${isActive ? 'bg-[#cbd5e1] text-[#0f172a]' : 'bg-gray-200 text-gray-500'}`}
+                      >
+                        {count}
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-              return (
-                <Collapsible
-                  key={status}
-                  open={expandedSections[status]}
-                  onOpenChange={() => toggleSection(status)}
-                >
-                  <Card className={config.bgColor}>
-                    <CollapsibleTrigger asChild>
-                      <CardHeader className={`cursor-pointer ${config.headerColor} rounded-t-lg`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-3">
-                            <StatusIcon className="h-5 w-5" />
-                            <div>
-                              <CardTitle className="text-lg">{config.label}</CardTitle>
-                              <CardDescription>{config.description}</CardDescription>
+            <Card className={`${STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG].bgColor} border-none shadow-none rounded-xl overflow-hidden`}>
+              <div className={`${STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG].headerColor} p-4 flex items-center gap-3 border-b border-black/5`}>
+                {(() => {
+                  const Icon = STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG].icon;
+                  return <Icon className="h-5 w-5 text-current opacity-80" />;
+                })()}
+                <div>
+                  <h3 className="font-bold text-gray-900">{STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG].label}</h3>
+                  <p className="text-sm text-gray-600">{STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG].description}</p>
+                </div>
+              </div>
+              
+              <CardContent className="p-4 bg-transparent">
+                {(groupedCooperatives[activeTab] || []).length === 0 ? (
+                  <p className="text-center text-gray-500 py-12 font-medium">No cooperatives in this category</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(groupedCooperatives[activeTab] || []).map(coop => {
+                      const config = STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG];
+                      return (
+                        <Card key={coop.id} className="bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow">
+                          <CardHeader className="pb-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <Badge className={config.badgeClass}>{activeTab}</Badge>
+                              <span className="text-xs text-gray-500 font-medium bg-gray-50 px-2 py-0.5 rounded">{coop.type || 'N/A'}</span>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{items.length} cooperatives</Badge>
-                            <ChevronDown className={`h-5 w-5 transition-transform ${expandedSections[status] ? 'rotate-180' : ''}`} />
-                          </div>
-                        </div>
-                      </CardHeader>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <CardContent className="pt-4">
-                        {items.length === 0 ? (
-                          <p className="text-center text-gray-500 py-8">No cooperatives in this category</p>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {items.map(coop => (
-                              <Card key={coop.id} className="bg-white dark:bg-gray-800">
-                                <CardHeader className="pb-2">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <Badge className={config.badgeClass}>{status}</Badge>
-                                    <span className="text-xs text-gray-500">{coop.type || 'N/A'}</span>
-                                  </div>
-                                  <CardTitle className="text-base mt-2">{coop.name}</CardTitle>
-                                  <CardDescription>ID: {coop.coop_id}</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-2 text-sm">
-                                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                    <MapPin className="h-4 w-4" />
-                                    <span className="truncate">{coop.city || 'N/A'}, {coop.province || 'N/A'}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                    <Phone className="h-4 w-4" />
-                                    <span>{coop.contact_phone || 'N/A'}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                    <FileText className="h-4 w-4" />
-                                    <span>Submitted: {formatDate(coop.created_at)}</span>
-                                  </div>
-                                  <div className="flex gap-2 pt-2 border-t">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        setSelectedCooperative(coop);
-                                        setShowViewDialog(true);
-                                      }}
-                                      data-testid={`button-view-${coop.id}`}
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </Button>
-                                    {userRole === 'administrator' && status === 'pending' && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => {
-                                          setSelectedCooperative(coop);
-                                          setShowReviewDialog(true);
-                                        }}
-                                        data-testid={`button-review-${coop.id}`}
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                    {userRole === 'administrator' && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="text-red-600"
-                                        onClick={() => handleDeleteCooperative(coop.id)}
-                                        data-testid={`button-delete-${coop.id}`}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
-              );
-            })}
+                            <CardTitle className="text-base mt-3 leading-tight font-bold">{coop.name}</CardTitle>
+                            <CardDescription className="text-xs mt-1">ID: {coop.coop_id}</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-2.5 text-sm pt-2">
+                            <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-400">
+                              <MapPin className="h-4 w-4 text-gray-400" />
+                              <span className="truncate">{coop.city || 'N/A'}, {coop.province || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-400">
+                              <Phone className="h-4 w-4 text-gray-400" />
+                              <span>{coop.contact_phone || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-400">
+                              <FileText className="h-4 w-4 text-gray-400" />
+                              <span>Submitted: {formatDate(coop.created_at)}</span>
+                            </div>
+                            <div className="flex gap-2 pt-4 border-t border-gray-100 mt-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium h-9"
+                                onClick={() => {
+                                  setSelectedCooperative(coop);
+                                  setShowViewDialog(true);
+                                }}
+                                data-testid={`button-view-${coop.id}`}
+                              >
+                                <Eye className="h-4 w-4 mr-1.5" />
+                                View
+                              </Button>
+                              {userRole === 'administrator' && activeTab === 'pending' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-1 bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700 font-medium h-9"
+                                  onClick={() => {
+                                    setSelectedCooperative(coop);
+                                    setShowReviewDialog(true);
+                                  }}
+                                  data-testid={`button-review-${coop.id}`}
+                                >
+                                  <Edit className="h-4 w-4 mr-1.5" />
+                                  Review
+                                </Button>
+                              )}
+                              {userRole === 'administrator' && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-red-600 hover:bg-red-50 hover:text-red-700 w-9 p-0"
+                                  onClick={() => handleDeleteCooperative(coop.id)}
+                                  data-testid={`button-delete-${coop.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -662,12 +682,27 @@ const CooperativeRegistration = () => {
                      <p className="text-xs text-gray-500 mt-1 font-medium">Scanned copy of your official registration from the Cooperative Development Authority.</p>
                    </div>
                    <div className="flex flex-wrap items-center gap-3">
-                     <Button variant="outline" size="sm" className="bg-white h-8 text-xs font-semibold px-4 rounded-lg border-gray-300 shadow-sm">Change File</Button>
-                     <div className="flex items-center gap-2 text-xs font-medium text-gray-600 bg-gray-50/80 px-3 pr-2 py-1.5 rounded-lg border border-gray-200">
-                       <FileText className="w-3.5 h-3.5 text-blue-500/80" />
-                       <span className="truncate max-w-[150px] md:max-w-[200px]">Screenshot 2024-10-17 20233...</span>
-                       <X className="w-3.5 h-3.5 text-red-500/80 cursor-pointer hover:text-red-600 ml-1 transition-colors" />
+                     <div className="relative">
+                       <input 
+                         type="file" 
+                         id="doc-cda" 
+                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                         onChange={(e) => handleFileChange(e, 'cda_certificate')}
+                         accept=".pdf,.jpg,.jpeg,.png"
+                       />
+                       <Button variant="outline" size="sm" type="button" className="bg-white h-8 text-xs font-semibold px-4 rounded-lg border-gray-300 shadow-sm pointer-events-none">
+                         {documents.cda_certificate ? 'Change File' : 'Upload File'}
+                       </Button>
                      </div>
+                     {documents.cda_certificate && (
+                       <div className="flex items-center gap-2 text-xs font-medium text-gray-600 bg-gray-50/80 px-3 pr-2 py-1.5 rounded-lg border border-gray-200 animate-in fade-in zoom-in duration-200">
+                         <FileText className="w-3.5 h-3.5 text-blue-500/80" />
+                         <span className="truncate max-w-[150px] md:max-w-[200px]">{documents.cda_certificate.name}</span>
+                         <button type="button" onClick={() => removeFile('cda_certificate')} className="outline-none focus:outline-none ml-1">
+                           <X className="w-3.5 h-3.5 text-red-500/80 hover:text-red-600 transition-colors" />
+                         </button>
+                       </div>
+                     )}
                    </div>
                 </div>
                 
@@ -677,12 +712,27 @@ const CooperativeRegistration = () => {
                      <p className="text-xs text-gray-500 mt-1 font-medium">The complete set of your approved cooperative by-laws.</p>
                    </div>
                    <div className="flex flex-wrap items-center gap-3">
-                     <Button variant="outline" size="sm" className="bg-white h-8 text-xs font-semibold px-4 rounded-lg border-gray-300 shadow-sm">Change File</Button>
-                     <div className="flex items-center gap-2 text-xs font-medium text-gray-600 bg-gray-50/80 px-3 pr-2 py-1.5 rounded-lg border border-gray-200">
-                       <FileText className="w-3.5 h-3.5 text-orange-500/80" />
-                       <span className="truncate max-w-[150px] md:max-w-[200px]">2.-Parent_s-Permit-final.pdf</span>
-                       <X className="w-3.5 h-3.5 text-red-500/80 cursor-pointer hover:text-red-600 ml-1 transition-colors" />
+                     <div className="relative">
+                       <input 
+                         type="file" 
+                         id="doc-articles" 
+                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                         onChange={(e) => handleFileChange(e, 'articles_of_cooperation')}
+                         accept=".pdf,.doc,.docx"
+                       />
+                       <Button variant="outline" size="sm" type="button" className="bg-white h-8 text-xs font-semibold px-4 rounded-lg border-gray-300 shadow-sm pointer-events-none">
+                         {documents.articles_of_cooperation ? 'Change File' : 'Upload File'}
+                       </Button>
                      </div>
+                     {documents.articles_of_cooperation && (
+                       <div className="flex items-center gap-2 text-xs font-medium text-gray-600 bg-gray-50/80 px-3 pr-2 py-1.5 rounded-lg border border-gray-200 animate-in fade-in zoom-in duration-200">
+                         <FileText className="w-3.5 h-3.5 text-orange-500/80" />
+                         <span className="truncate max-w-[150px] md:max-w-[200px]">{documents.articles_of_cooperation.name}</span>
+                         <button type="button" onClick={() => removeFile('articles_of_cooperation')} className="outline-none focus:outline-none ml-1">
+                           <X className="w-3.5 h-3.5 text-red-500/80 hover:text-red-600 transition-colors" />
+                         </button>
+                       </div>
+                     )}
                    </div>
                 </div>
 
@@ -692,12 +742,27 @@ const CooperativeRegistration = () => {
                      <p className="text-xs text-gray-500 mt-1 font-medium">A clear scan of a government-issued ID for the representative.</p>
                    </div>
                    <div className="flex flex-wrap items-center gap-3">
-                     <Button variant="outline" size="sm" className="bg-white h-8 text-xs font-semibold px-4 rounded-lg border-gray-300 shadow-sm">Change File</Button>
-                     <div className="flex items-center gap-2 text-xs font-medium text-gray-600 bg-gray-50/80 px-3 pr-2 py-1.5 rounded-lg border border-gray-200">
-                       <FileText className="w-3.5 h-3.5 text-green-500/80" />
-                       <span className="truncate max-w-[150px] md:max-w-[200px]">642119964_15111185237...</span>
-                       <X className="w-3.5 h-3.5 text-red-500/80 cursor-pointer hover:text-red-600 ml-1 transition-colors" />
+                     <div className="relative">
+                       <input 
+                         type="file" 
+                         id="doc-id" 
+                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                         onChange={(e) => handleFileChange(e, 'valid_id')}
+                         accept=".pdf,.jpg,.jpeg,.png"
+                       />
+                       <Button variant="outline" size="sm" type="button" className="bg-white h-8 text-xs font-semibold px-4 rounded-lg border-gray-300 shadow-sm pointer-events-none">
+                         {documents.valid_id ? 'Change File' : 'Upload File'}
+                       </Button>
                      </div>
+                     {documents.valid_id && (
+                       <div className="flex items-center gap-2 text-xs font-medium text-gray-600 bg-gray-50/80 px-3 pr-2 py-1.5 rounded-lg border border-gray-200 animate-in fade-in zoom-in duration-200">
+                         <FileText className="w-3.5 h-3.5 text-green-500/80" />
+                         <span className="truncate max-w-[150px] md:max-w-[200px]">{documents.valid_id.name}</span>
+                         <button type="button" onClick={() => removeFile('valid_id')} className="outline-none focus:outline-none ml-1">
+                           <X className="w-3.5 h-3.5 text-red-500/80 hover:text-red-600 transition-colors" />
+                         </button>
+                       </div>
+                     )}
                    </div>
                 </div>
               </div>
