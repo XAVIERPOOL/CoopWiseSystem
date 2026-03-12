@@ -19,7 +19,7 @@ import AvailableTrainings from "./pages/AvailableTrainings";
 import OfficerDashboard from "./pages/OfficerDashboard";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
-import SystemLogs from "C:/Users/XAVIER/Documents/CoopWiseSystem/src/pages/SystemLogs"; // <--- IMPORT THIS
+import SystemLogs from "./pages/SystemLogs";
 
 const queryClient = new QueryClient();
 
