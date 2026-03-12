@@ -9,7 +9,9 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+// Increased limit to 50mb to support base64-encoded file uploads stored as JSON
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Database connection using Neon's Serverless WebSockets to bypass Vercel TCP drops
 console.log('DATABASE_URL is defined:', !!process.env.DATABASE_URL);
