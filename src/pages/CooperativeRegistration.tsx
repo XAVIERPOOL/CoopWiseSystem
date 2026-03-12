@@ -25,7 +25,6 @@ import {
   Building2,
   Plus,
   Search,
-  ChevronDown,
   Clock,
   CheckCircle,
   XCircle,
@@ -35,10 +34,13 @@ import {
   Trash2,
   MapPin,
   Phone,
-  Mail,
   FileText,
   Check,
-  X
+  X,
+  Users,
+  Layers,
+  CalendarDays,
+  Mail
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -335,26 +337,62 @@ const CooperativeRegistration = () => {
       title="Cooperative Registration"
       description="Register and manage cooperative organizations"
     >
-      <div className="p-6">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Cooperative Applications
-          </h2>
-          <div className="flex flex-wrap gap-2 items-center">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search cooperatives..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-64"
-                data-testid="input-search"
-              />
+      <div className="p-6 space-y-6">
+        {/* ── Header Banner ── */}
+        <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#1e293b] via-[#1e3a5f] to-[#164e8e] text-white shadow-lg p-6">
+          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 70% 50%, white 0%, transparent 60%)' }} />
+          <div className="relative z-10 flex flex-col sm:flex-row gap-6 justify-between items-start sm:items-center">
+            <div className="flex items-center gap-4">
+              <div className="bg-white/10 p-3 rounded-xl backdrop-blur-sm border border-white/20 shadow-inner">
+                <Building2 className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-extrabold tracking-tight">Cooperative Applications</h2>
+                <p className="text-blue-200/80 text-sm font-medium mt-0.5">Naga City · Camarines Sur · Region V</p>
+              </div>
             </div>
-            <Button onClick={() => setShowCreateDialog(true)} data-testid="button-create">
-              <Plus className="h-4 w-4 mr-2" />
-              New Registration
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
+                <Input
+                  placeholder="Search cooperatives..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-56 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20 focus-visible:ring-white/30"
+                  data-testid="input-search"
+                />
+              </div>
+              <Button onClick={() => setShowCreateDialog(true)} data-testid="button-create" className="bg-white text-[#1e293b] hover:bg-blue-50 font-bold shadow-md">
+                <Plus className="h-4 w-4 mr-2" />
+                New Registration
+              </Button>
+            </div>
+          </div>
+
+          {/* Stats Row */}
+          <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+            {STATUS_ORDER.map(status => {
+              const cfg = STATUS_CONFIG[status];
+              const count = groupedCooperatives[status]?.length || 0;
+              const StatIcon = cfg.icon;
+              return (
+                <button
+                  key={status}
+                  onClick={() => setActiveTab(status)}
+                  className={`text-left p-3 rounded-xl border transition-all duration-200 ${
+                    activeTab === status
+                    ? 'bg-white/20 border-white/40 shadow-inner'
+                    : 'bg-white/10 border-white/10 hover:bg-white/15'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <StatIcon className="h-4 w-4 text-white/70" />
+                    <span className="text-2xl font-extrabold text-white">{count}</span>
+                  </div>
+                  <p className="text-[11px] font-semibold text-white/70 uppercase tracking-wider truncate">{cfg.label}</p>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -363,129 +401,122 @@ const CooperativeRegistration = () => {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           </div>
         ) : (
-          <div className="space-y-6">
-            <div className="bg-gray-50/80 p-1.5 rounded-full border border-gray-200/60 overflow-x-auto shadow-sm">
-              <div className="flex w-max min-w-full justify-between gap-1 items-center px-1">
-                {STATUS_ORDER.map(status => {
-                  const config = STATUS_CONFIG[status];
-                  const count = groupedCooperatives[status]?.length || 0;
-                  const isActive = activeTab === status;
-                  
-                  return (
-                    <button
-                      key={status}
-                      onClick={() => setActiveTab(status)}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-full text-sm font-semibold transition-all duration-200
-                        ${isActive 
-                          ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50 transform scale-[1.02]' 
-                          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
-                        }`}
-                    >
-                      {config.label}
-                      <Badge 
-                        variant="secondary" 
-                        className={`ml-1 px-1.5 py-0 min-w-[1.25rem] text-[10px] items-center justify-center rounded-sm leading-none border-none
-                          ${isActive ? 'bg-[#cbd5e1] text-[#0f172a]' : 'bg-gray-200 text-gray-500'}`}
-                      >
-                        {count}
-                      </Badge>
-                    </button>
-                  );
-                })}
-              </div>
+          <div className="space-y-4">
+            {/* Pill Tabs */}
+            <div className="bg-white border border-gray-200 p-1.5 rounded-xl shadow-sm flex gap-1 overflow-x-auto">
+              {STATUS_ORDER.map(status => {
+                const config = STATUS_CONFIG[status];
+                const count = groupedCooperatives[status]?.length || 0;
+                const isActive = activeTab === status;
+                const TabIcon = config.icon;
+                return (
+                  <button
+                    key={status}
+                    onClick={() => setActiveTab(status)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-semibold transition-all duration-200 min-w-max
+                      ${isActive 
+                        ? 'bg-[#1e293b] text-white shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+                      }`}
+                  >
+                    <TabIcon className={`h-4 w-4 ${isActive ? 'text-white/80' : 'text-gray-400'}`} />
+                    {config.label}
+                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}>{count}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            <Card className={`${STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG].bgColor} border-none shadow-none rounded-xl overflow-hidden`}>
-              <div className={`${STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG].headerColor} p-4 flex items-center gap-3 border-b border-black/5`}>
-                {(() => {
-                  const Icon = STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG].icon;
-                  return <Icon className="h-5 w-5 text-current opacity-80" />;
-                })()}
-                <div>
-                  <h3 className="font-bold text-gray-900">{STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG].label}</h3>
-                  <p className="text-sm text-gray-600">{STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG].description}</p>
+            <div>
+              {(groupedCooperatives[activeTab] || []).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  {(() => { const Icon = STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG].icon; return <Icon className="h-12 w-12 text-gray-300 mb-4" />; })()}
+                  <p className="text-gray-500 font-semibold text-lg">No applications here</p>
+                  <p className="text-gray-400 text-sm mt-1">{STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG].description}</p>
                 </div>
-              </div>
-              
-              <CardContent className="p-4 bg-transparent">
-                {(groupedCooperatives[activeTab] || []).length === 0 ? (
-                  <p className="text-center text-gray-500 py-12 font-medium">No cooperatives in this category</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {(groupedCooperatives[activeTab] || []).map(coop => {
-                      const config = STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG];
-                      return (
-                        <Card key={coop.id} className="bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow">
-                          <CardHeader className="pb-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <Badge className={config.badgeClass}>{activeTab}</Badge>
-                              <span className="text-xs text-gray-500 font-medium bg-gray-50 px-2 py-0.5 rounded">{coop.type || 'N/A'}</span>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {(groupedCooperatives[activeTab] || []).map(coop => {
+                    const config = STATUS_CONFIG[activeTab as keyof typeof STATUS_CONFIG];
+                    const borderAccent = {
+                      pending: 'border-l-yellow-400',
+                      needs_resubmission: 'border-l-orange-400',
+                      approved: 'border-l-green-500',
+                      rejected: 'border-l-red-400',
+                    }[activeTab] ?? 'border-l-gray-300';
+                    return (
+                      <Card key={coop.id} className={`bg-white dark:bg-gray-800 shadow-sm hover:shadow-lg transition-all duration-200 border border-gray-200 border-l-4 ${borderAccent} group`}>
+                        <CardHeader className="pb-2 pt-4 px-4">
+                          <div className="flex items-start gap-3">
+                            <div className="bg-gray-100 rounded-lg p-2 shrink-0 group-hover:bg-blue-50 transition-colors">
+                              <Building2 className="h-5 w-5 text-gray-500 group-hover:text-blue-600 transition-colors" />
                             </div>
-                            <CardTitle className="text-base mt-3 leading-tight font-bold">{coop.name}</CardTitle>
-                            <CardDescription className="text-xs mt-1">ID: {coop.coop_id}</CardDescription>
-                          </CardHeader>
-                          <CardContent className="space-y-2.5 text-sm pt-2">
-                            <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-400">
-                              <MapPin className="h-4 w-4 text-gray-400" />
-                              <span className="truncate">{coop.city || 'N/A'}, {coop.province || 'N/A'}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <Badge className={`${config.badgeClass} text-[10px] px-2 py-0.5 capitalize`}>{activeTab.replace('_', ' ')}</Badge>
+                                <span className="text-[10px] text-gray-400 font-medium shrink-0">{coop.coop_id}</span>
+                              </div>
+                              <CardTitle className="text-[15px] leading-snug font-bold truncate">{coop.name}</CardTitle>
+                              <CardDescription className="text-xs mt-0.5 truncate">{coop.type || 'N/A'}</CardDescription>
                             </div>
-                            <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-400">
-                              <Phone className="h-4 w-4 text-gray-400" />
-                              <span>{coop.contact_phone || 'N/A'}</span>
-                            </div>
-                            <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-400">
-                              <FileText className="h-4 w-4 text-gray-400" />
-                              <span>Submitted: {formatDate(coop.created_at)}</span>
-                            </div>
-                            <div className="flex gap-2 pt-4 border-t border-gray-100 mt-2">
+                          </div>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-4 space-y-2 text-xs text-gray-500">
+                          <div className="h-px bg-gray-100 my-2" />
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                            <span className="truncate">{coop.city || 'N/A'}, {coop.province || 'N/A'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                            <span>{coop.contact_phone || 'N/A'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CalendarDays className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                            <span>Submitted {formatDate(coop.created_at)}</span>
+                          </div>
+                          <div className="flex gap-2 pt-3 border-t border-gray-100">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 text-gray-700 font-semibold h-8 text-xs hover:bg-gray-50"
+                              onClick={() => { setSelectedCooperative(coop); setShowViewDialog(true); }}
+                              data-testid={`button-view-${coop.id}`}
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1" /> Details
+                            </Button>
+                            {userRole === 'administrator' && activeTab === 'pending' && (
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium h-9"
-                                onClick={() => {
-                                  setSelectedCooperative(coop);
-                                  setShowViewDialog(true);
-                                }}
-                                data-testid={`button-view-${coop.id}`}
+                                className="flex-1 bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700 font-semibold h-8 text-xs"
+                                onClick={() => { setSelectedCooperative(coop); setShowReviewDialog(true); }}
+                                data-testid={`button-review-${coop.id}`}
                               >
-                                <Eye className="h-4 w-4 mr-1.5" />
-                                View
+                                <Edit className="h-3.5 w-3.5 mr-1" /> Review
                               </Button>
-                              {userRole === 'administrator' && activeTab === 'pending' && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="flex-1 bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700 font-medium h-9"
-                                  onClick={() => {
-                                    setSelectedCooperative(coop);
-                                    setShowReviewDialog(true);
-                                  }}
-                                  data-testid={`button-review-${coop.id}`}
-                                >
-                                  <Edit className="h-4 w-4 mr-1.5" />
-                                  Review
-                                </Button>
-                              )}
-                              {userRole === 'administrator' && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-red-600 hover:bg-red-50 hover:text-red-700 w-9 p-0"
-                                  onClick={() => handleDeleteCooperative(coop.id)}
-                                  data-testid={`button-delete-${coop.id}`}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                            )}
+                            {userRole === 'administrator' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-500 hover:bg-red-50 hover:text-red-600 w-8 h-8 p-0"
+                                onClick={() => handleDeleteCooperative(coop.id)}
+                                data-testid={`button-delete-${coop.id}`}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -792,89 +823,110 @@ const CooperativeRegistration = () => {
       </Dialog>
 
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Cooperative Details</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
           {selectedCooperative && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-gray-500">Cooperative Name</Label>
-                <p className="font-medium">{selectedCooperative.name}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-500">ID</Label>
-                  <p>{selectedCooperative.coop_id}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500">Type</Label>
-                  <p>{selectedCooperative.type || 'N/A'}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500">CDA Registration</Label>
-                  <p>{selectedCooperative.registration_number || 'N/A'}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500">TIN</Label>
-                  <p>{selectedCooperative.tin || 'N/A'}</p>
-                </div>
-              </div>
-              <div>
-                <Label className="text-gray-500">Address</Label>
-                <p>{selectedCooperative.address || 'N/A'}</p>
-                <p>{selectedCooperative.city}, {selectedCooperative.province}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-500">Contact Person</Label>
-                  <p>{selectedCooperative.contact_person || 'N/A'}</p>
-                </div>
-                <div>
-                  <Label className="text-gray-500">Phone</Label>
-                  <p>{selectedCooperative.contact_phone || 'N/A'}</p>
-                </div>
-              </div>
-              <div>
-                <Label className="text-gray-500">Email</Label>
-                <p>{selectedCooperative.contact_email || 'N/A'}</p>
-              </div>
-              {selectedCooperative.review_notes && (
-                <div>
-                  <Label className="text-gray-500">Review Notes</Label>
-                  <p className="text-sm bg-gray-100 dark:bg-gray-800 p-2 rounded mt-1">
-                    {selectedCooperative.review_notes}
-                  </p>
-                </div>
-              )}
-              
-              <div className="pt-2 border-t mt-4">
-                <Label className="text-gray-900 font-semibold mb-3 block">Submitted Documents</Label>
-                {selectedCooperative.submitted_documents && selectedCooperative.submitted_documents.length > 0 ? (
-                  <div className="space-y-2">
-                    {selectedCooperative.submitted_documents.map((doc, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2.5 border rounded-lg bg-gray-50">
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-4 w-4 text-blue-500" />
-                          <div>
-                            <p className="text-sm font-medium capitalize">{doc.type?.replace(/_/g, ' ') || 'Document'}</p>
-                            <p className="text-xs text-gray-500">{doc.filename || 'Attached file'}</p>
-                          </div>
-                        </div>
-                        <Button variant="outline" size="sm" className="h-8" asChild>
-                          <a href={doc.url || '#'} target="_blank" rel="noopener noreferrer">
-                            <Eye className="h-3.5 w-3.5 mr-1" />
-                            View
-                          </a>
-                        </Button>
-                      </div>
-                    ))}
+            <>
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-[#1e293b] to-[#1e3a5f] text-white p-6 rounded-t-lg">
+                <div className="flex items-start gap-4">
+                  <div className="bg-white/10 p-3 rounded-xl border border-white/20">
+                    <Building2 className="h-6 w-6 text-white" />
                   </div>
-                ) : (
-                  <p className="text-sm text-gray-500 italic bg-gray-50 p-4 rounded text-center border border-dashed">No documents were uploaded with this application.</p>
-                )}
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-xl font-extrabold leading-tight">{selectedCooperative.name}</h2>
+                    <p className="text-blue-200/80 text-sm font-medium mt-0.5">{selectedCooperative.type || 'N/A'} · ID: {selectedCooperative.coop_id}</p>
+                    <div className="mt-2">
+                      {(() => {
+                        const cfg = STATUS_CONFIG[selectedCooperative.status as keyof typeof STATUS_CONFIG];
+                        if (!cfg) return null;
+                        return <Badge className={`${cfg.badgeClass} capitalize`}>{selectedCooperative.status?.replace('_', ' ')}</Badge>;
+                      })()}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+
+              <div className="p-6 space-y-5">
+                {/* Info Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs text-gray-400 uppercase tracking-wider font-semibold">CDA Reg. Number</Label>
+                    <p className="font-semibold text-gray-800">{selectedCooperative.registration_number || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label className="text-xs text-gray-400 uppercase tracking-wider font-semibold">TIN</Label>
+                    <p className="font-semibold text-gray-800">{selectedCooperative.tin || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Date Submitted</Label>
+                    <p className="font-semibold text-gray-800">{formatDate(selectedCooperative.created_at)}</p>
+                  </div>
+                </div>
+
+                {/* Address */}
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <Label className="text-xs text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-2 mb-2"><MapPin className="h-3.5 w-3.5" /> Address</Label>
+                  <p className="font-semibold text-gray-800">{selectedCooperative.address || 'N/A'}</p>
+                  <p className="text-sm text-gray-500">{selectedCooperative.city}, {selectedCooperative.province}, {selectedCooperative.region}</p>
+                </div>
+
+                {/* Contact */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-gray-50 rounded-xl p-3.5 border border-gray-100">
+                    <Label className="text-xs text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5 mb-1.5"><Users className="h-3.5 w-3.5" /> Contact Person</Label>
+                    <p className="font-semibold text-sm text-gray-800">{selectedCooperative.contact_person || 'N/A'}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-3.5 border border-gray-100">
+                    <Label className="text-xs text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5 mb-1.5"><Phone className="h-3.5 w-3.5" /> Phone</Label>
+                    <p className="font-semibold text-sm text-gray-800">{selectedCooperative.contact_phone || 'N/A'}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-3.5 border border-gray-100">
+                    <Label className="text-xs text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-1.5 mb-1.5"><Mail className="h-3.5 w-3.5" /> Email</Label>
+                    <p className="font-semibold text-sm text-gray-800 truncate">{selectedCooperative.contact_email || 'N/A'}</p>
+                  </div>
+                </div>
+
+                {/* Review Notes */}
+                {selectedCooperative.review_notes && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <Label className="text-xs text-amber-700 uppercase tracking-wider font-bold mb-2 block">⚠ Review Notes</Label>
+                    <p className="text-sm text-amber-900 font-medium">{selectedCooperative.review_notes}</p>
+                  </div>
+                )}
+
+                {/* Documents */}
+                <div>
+                  <Label className="text-xs text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-2 mb-3"><FileText className="h-3.5 w-3.5" /> Submitted Documents</Label>
+                  {selectedCooperative.submitted_documents && selectedCooperative.submitted_documents.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedCooperative.submitted_documents.map((doc, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors group">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-blue-50 p-2 rounded-lg">
+                              <FileText className="h-4 w-4 text-blue-500" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-gray-800 capitalize">{doc.type?.replace(/_/g, ' ') || 'Document'}</p>
+                              <p className="text-xs text-gray-400">{doc.filename || 'Attached file'}</p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" className="h-8 opacity-70 group-hover:opacity-100 transition-opacity" asChild>
+                            <a href={doc.url || '#'} target="_blank" rel="noopener noreferrer">
+                              <Eye className="h-3.5 w-3.5 mr-1" /> View
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                      <FileText className="h-8 w-8 text-gray-300 mb-2" />
+                      <p className="text-sm text-gray-500 font-medium">No documents uploaded</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
