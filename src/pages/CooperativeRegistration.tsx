@@ -143,6 +143,7 @@ const CooperativeRegistration = () => {
   const [selectedCooperative, setSelectedCooperative] = useState<Cooperative | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
   const stepTitles = [
     'Basic Information',
     'Legal & Registration Details',
@@ -300,6 +301,7 @@ const CooperativeRegistration = () => {
       valid_id: null,
     });
     setCurrentStep(1);
+    setStepErrors({});
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
@@ -310,6 +312,37 @@ const CooperativeRegistration = () => {
 
   const removeFile = (field: string) => {
     setDocuments({ ...documents, [field]: null });
+  };
+
+  const clearError = (field: string) => {
+    if (stepErrors[field]) setStepErrors(prev => { const e = { ...prev }; delete e[field]; return e; });
+  };
+
+  const validateStep = (step: number): boolean => {
+    const errors: Record<string, string> = {};
+    if (step === 1) {
+      if (!formData.name.trim()) errors.name = 'Cooperative name is required';
+      if (!formData.type) errors.type = 'Please select a cooperative type';
+      if (!formData.address.trim()) errors.address = 'Street address is required';
+    }
+    if (step === 2) {
+      if (!formData.registration_number.trim()) errors.registration_number = 'CDA Registration Number is required';
+      if (!formData.tin.trim()) errors.tin = 'TIN is required';
+    }
+    if (step === 3) {
+      if (!formData.contact_person.trim()) errors.contact_person = 'Contact person name is required';
+      if (!formData.contact_email.trim()) errors.contact_email = 'Email address is required';
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email)) errors.contact_email = 'Enter a valid email address';
+      if (!formData.contact_phone.trim()) errors.contact_phone = 'Phone number is required';
+    }
+    setStepErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleNextStep = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => prev + 1);
+    }
   };
 
   const filteredCooperatives = cooperatives.filter(coop =>
@@ -560,19 +593,20 @@ const CooperativeRegistration = () => {
                   <Label className="text-gray-700 font-semibold mb-1 block">Cooperative Name <span className="text-red-500">*</span></Label>
                   <Input
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) => { setFormData({ ...formData, name: e.target.value }); clearError('name'); }}
                     placeholder="Enter cooperative name"
                     data-testid="input-name"
-                    className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    className={`h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${stepErrors.name ? 'border-red-400 focus:border-red-400' : ''}`}
                   />
+                  {stepErrors.name && <p className="text-red-500 text-xs mt-1 font-medium flex items-center gap-1"><X className="h-3 w-3" />{stepErrors.name}</p>}
                 </div>
                 <div>
-                  <Label className="text-gray-700 font-semibold mb-1 block">Cooperative Type</Label>
+                  <Label className="text-gray-700 font-semibold mb-1 block">Cooperative Type <span className="text-red-500">*</span></Label>
                   <Select
                     value={formData.type}
-                    onValueChange={(value) => setFormData({ ...formData, type: value })}
+                    onValueChange={(value) => { setFormData({ ...formData, type: value }); clearError('type'); }}
                   >
-                    <SelectTrigger data-testid="select-type" className="h-11 border-gray-300">
+                    <SelectTrigger data-testid="select-type" className={`h-11 border-gray-300 ${stepErrors.type ? 'border-red-400' : ''}`}>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -581,6 +615,7 @@ const CooperativeRegistration = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {stepErrors.type && <p className="text-red-500 text-xs mt-1 font-medium flex items-center gap-1"><X className="h-3 w-3" />{stepErrors.type}</p>}
                 </div>
                 
                 <div className="pt-4">
@@ -590,11 +625,12 @@ const CooperativeRegistration = () => {
                       <Label className="text-gray-700 font-semibold mb-1 block">Street Address <span className="text-red-500">*</span></Label>
                       <Textarea
                         value={formData.address}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        onChange={(e) => { setFormData({ ...formData, address: e.target.value }); clearError('address'); }}
                         placeholder="Complete street address"
                         data-testid="input-address"
-                        className="resize-none h-20 border-gray-300"
+                        className={`resize-none h-20 border-gray-300 ${stepErrors.address ? 'border-red-400' : ''}`}
                       />
+                      {stepErrors.address && <p className="text-red-500 text-xs mt-1 font-medium flex items-center gap-1"><X className="h-3 w-3" />{stepErrors.address}</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -628,11 +664,12 @@ const CooperativeRegistration = () => {
                     <Label className="text-gray-700 font-semibold mb-1 block">CDA Registration Number <span className="text-red-500">*</span></Label>
                     <Input
                       value={formData.registration_number}
-                      onChange={(e) => setFormData({ ...formData, registration_number: e.target.value })}
+                      onChange={(e) => { setFormData({ ...formData, registration_number: e.target.value }); clearError('registration_number'); }}
                       placeholder="e.g., 9520-15000123"
                       data-testid="input-registration-number"
-                      className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                      className={`h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${stepErrors.registration_number ? 'border-red-400' : ''}`}
                     />
+                    {stepErrors.registration_number && <p className="text-red-500 text-xs mt-1 font-medium flex items-center gap-1"><X className="h-3 w-3" />{stepErrors.registration_number}</p>}
                   </div>
                   <div>
                     <Label className="text-gray-700 font-semibold mb-1 block">CDA Registration Date</Label>
@@ -649,11 +686,12 @@ const CooperativeRegistration = () => {
                   <Label className="text-gray-700 font-semibold mb-1 block">TIN (Tax Identification Number) <span className="text-red-500">*</span></Label>
                   <Input
                     value={formData.tin}
-                    onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
+                    onChange={(e) => { setFormData({ ...formData, tin: e.target.value }); clearError('tin'); }}
                     placeholder="XXX-XXX-XXX-XXX"
                     data-testid="input-tin"
-                    className="h-11 border-gray-300"
+                    className={`h-11 border-gray-300 ${stepErrors.tin ? 'border-red-400' : ''}`}
                   />
+                  {stepErrors.tin && <p className="text-red-500 text-xs mt-1 font-medium flex items-center gap-1"><X className="h-3 w-3" />{stepErrors.tin}</p>}
                   <p className="text-xs text-gray-500 mt-1.5 font-medium">Format: 12-digit number separated by dashes.</p>
                 </div>
               </div>
@@ -665,11 +703,12 @@ const CooperativeRegistration = () => {
                   <Label className="text-gray-700 font-semibold mb-1 block">Primary Contact Person <span className="text-red-500">*</span></Label>
                   <Input
                     value={formData.contact_person}
-                    onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                    onChange={(e) => { setFormData({ ...formData, contact_person: e.target.value }); clearError('contact_person'); }}
                     placeholder="Mark Vincent"
                     data-testid="input-contact-person"
-                    className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    className={`h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${stepErrors.contact_person ? 'border-red-400' : ''}`}
                   />
+                  {stepErrors.contact_person && <p className="text-red-500 text-xs mt-1 font-medium flex items-center gap-1"><X className="h-3 w-3" />{stepErrors.contact_person}</p>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -677,21 +716,23 @@ const CooperativeRegistration = () => {
                     <Input
                       type="email"
                       value={formData.contact_email}
-                      onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                      onChange={(e) => { setFormData({ ...formData, contact_email: e.target.value }); clearError('contact_email'); }}
                       placeholder="mari@gmail.com"
                       data-testid="input-contact-email"
-                      className="h-11 border-gray-300"
+                      className={`h-11 border-gray-300 ${stepErrors.contact_email ? 'border-red-400' : ''}`}
                     />
+                    {stepErrors.contact_email && <p className="text-red-500 text-xs mt-1 font-medium flex items-center gap-1"><X className="h-3 w-3" />{stepErrors.contact_email}</p>}
                   </div>
                   <div>
                     <Label className="text-gray-700 font-semibold mb-1 block">Contact Phone <span className="text-red-500">*</span></Label>
                     <Input
                       value={formData.contact_phone}
-                      onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                      onChange={(e) => { setFormData({ ...formData, contact_phone: e.target.value }); clearError('contact_phone'); }}
                       placeholder="+63 XXX XXX XXXX"
                       data-testid="input-contact-phone"
-                      className="h-11 border-gray-300"
+                      className={`h-11 border-gray-300 ${stepErrors.contact_phone ? 'border-red-400' : ''}`}
                     />
+                    {stepErrors.contact_phone && <p className="text-red-500 text-xs mt-1 font-medium flex items-center gap-1"><X className="h-3 w-3" />{stepErrors.contact_phone}</p>}
                   </div>
                 </div>
               </div>
@@ -804,12 +845,12 @@ const CooperativeRegistration = () => {
             {currentStep === 1 ? (
               <Button variant="ghost" onClick={() => setShowCreateDialog(false)} className="text-gray-500 hover:text-gray-800 font-semibold h-11 px-6 rounded-full border border-gray-200 hover:bg-gray-50">Cancel</Button>
             ) : (
-              <Button variant="ghost" onClick={() => setCurrentStep(prev => prev - 1)} className="text-gray-500 hover:text-gray-800 font-semibold h-11 px-6 rounded-full border border-gray-200 hover:bg-gray-50">Back</Button>
+            <Button variant="ghost" onClick={() => { setCurrentStep(prev => prev - 1); setStepErrors({}); }} className="text-gray-500 hover:text-gray-800 font-semibold h-11 px-6 rounded-full border border-gray-200 hover:bg-gray-50">Back</Button>
             )}
             
             <div className="flex gap-2 justify-end w-full sm:w-auto ml-auto">
               {currentStep < 4 ? (
-                <Button onClick={() => setCurrentStep(prev => prev + 1)} className="bg-[#1e293b] hover:bg-[#0f172a] text-white shadow-md transition-all font-semibold h-11 px-6 rounded-full">
+                <Button onClick={handleNextStep} className="bg-[#1e293b] hover:bg-[#0f172a] text-white shadow-md transition-all font-semibold h-11 px-6 rounded-full">
                   Next Step
                 </Button>
               ) : (
