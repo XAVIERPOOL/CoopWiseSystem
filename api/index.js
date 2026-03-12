@@ -18,8 +18,7 @@ console.log('DATABASE_URL is defined:', !!process.env.DATABASE_URL);
 console.log('NODE_ENV:', process.env.NODE_ENV);
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : { rejectUnauthorized: false } // force ssl for neon
+  connectionString: process.env.DATABASE_URL
 });
 
 let dbConnectionError = null;
