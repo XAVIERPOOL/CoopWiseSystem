@@ -13,15 +13,19 @@ app.use(express.json());
 
 // Database connection
 const { Pool } = pg;
+
+console.log('DATABASE_URL is defined:', !!process.env.DATABASE_URL);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : { rejectUnauthorized: false } // force ssl for neon
 });
 
 // Test database connection
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    console.error('Database connection error:', err);
+    console.error('Database connection error in pg pool:', err.message, err.code);
   } else {
     console.log('Database connected successfully');
   }
