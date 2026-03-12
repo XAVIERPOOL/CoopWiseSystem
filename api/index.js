@@ -49,6 +49,14 @@ app.get(['/api/debug-connection', '/debug-connection'], (req, res) => {
 
 app.get('/api/profiles', async (req, res) => {
   try {
+    if (dbConnectionError) {
+       return res.status(500).json({ 
+           error: 'Failed to fetch profiles due to bad connection', 
+           dbError: dbConnectionError,
+           hasUrl: !!process.env.DATABASE_URL
+       });
+    }
+
     // UPDATED: Construct full_name and sort by last_name
     const result = await pool.query(`
       SELECT *, 
@@ -59,7 +67,10 @@ app.get('/api/profiles', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching profiles:', error);
-    res.status(500).json({ error: 'Failed to fetch profiles' });
+    res.status(500).json({ 
+        error: 'Failed to fetch profiles',
+        details: error.message 
+    });
   }
 });
 
