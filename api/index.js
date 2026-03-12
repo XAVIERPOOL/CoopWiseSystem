@@ -17,14 +17,34 @@ const { Pool } = pg;
 console.log('DATABASE_URL is defined:', !!process.env.DATABASE_URL);
 console.log('NODE_ENV:', process.env.NODE_ENV);
 
-const pool = new Pool({
+// Better URL parsing to avoid special character escaping issues on Vercel
+let poolConfig = {
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  },
+  ssl: { rejectUnauthorized: false },
   connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 10000
-});
+};
+
+// If we have a URL, let's explicitly build the config to prevent pg-pool from failing to decode the password
+if (process.env.DATABASE_URL) {
+  try {
+    const dbUrl = new URL(process.env.DATABASE_URL);
+    poolConfig = {
+      user: dbUrl.username,
+      password: decodeURIComponent(dbUrl.password), // Fixes Vercel edge cases with encoded passwords
+      host: dbUrl.hostname,
+      port: dbUrl.port || 5432,
+      database: dbUrl.pathname.slice(1),
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 10000
+    };
+  } catch (e) {
+    console.error('Failed to parse DATABASE_URL:', e);
+  }
+}
+
+const pool = new Pool(poolConfig);
 
 let dbConnectionError = null;
 
