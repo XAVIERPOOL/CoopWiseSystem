@@ -202,7 +202,33 @@ const CooperativeRegistration = () => {
 
     setSubmitting(true);
     try {
-      const { data, error } = await api.createCooperative(formData);
+      // Build submitted_documents metadata from selected file objects
+      const submittedDocuments = [
+        documents.cda_certificate && {
+          type: 'cda_certificate',
+          filename: documents.cda_certificate.name,
+          size: documents.cda_certificate.size,
+          uploaded_at: new Date().toISOString(),
+        },
+        documents.articles_of_cooperation && {
+          type: 'articles_of_cooperation',
+          filename: documents.articles_of_cooperation.name,
+          size: documents.articles_of_cooperation.size,
+          uploaded_at: new Date().toISOString(),
+        },
+        documents.valid_id && {
+          type: 'valid_id',
+          filename: documents.valid_id.name,
+          size: documents.valid_id.size,
+          uploaded_at: new Date().toISOString(),
+        },
+      ].filter(Boolean);
+
+      const { data, error } = await api.createCooperative({
+        ...formData,
+        // Send document metadata as JSON — the backend stores this in submitted_documents column
+        submitted_documents: submittedDocuments,
+      } as any);
       if (error) throw error;
       
       toast({
