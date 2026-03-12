@@ -842,11 +842,38 @@ const CooperativeRegistration = () => {
               {selectedCooperative.review_notes && (
                 <div>
                   <Label className="text-gray-500">Review Notes</Label>
-                  <p className="text-sm bg-gray-100 dark:bg-gray-800 p-2 rounded">
+                  <p className="text-sm bg-gray-100 dark:bg-gray-800 p-2 rounded mt-1">
                     {selectedCooperative.review_notes}
                   </p>
                 </div>
               )}
+              
+              <div className="pt-2 border-t mt-4">
+                <Label className="text-gray-900 font-semibold mb-3 block">Submitted Documents</Label>
+                {selectedCooperative.submitted_documents && selectedCooperative.submitted_documents.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedCooperative.submitted_documents.map((doc, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2.5 border rounded-lg bg-gray-50">
+                        <div className="flex items-center gap-3">
+                          <FileText className="h-4 w-4 text-blue-500" />
+                          <div>
+                            <p className="text-sm font-medium capitalize">{doc.type?.replace(/_/g, ' ') || 'Document'}</p>
+                            <p className="text-xs text-gray-500">{doc.filename || 'Attached file'}</p>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm" className="h-8" asChild>
+                          <a href={doc.url || '#'} target="_blank" rel="noopener noreferrer">
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            View
+                          </a>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic bg-gray-50 p-4 rounded text-center border border-dashed">No documents were uploaded with this application.</p>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
