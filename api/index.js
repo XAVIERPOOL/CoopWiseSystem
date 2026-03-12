@@ -22,13 +22,26 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : { rejectUnauthorized: false } // force ssl for neon
 });
 
+let dbConnectionError = null;
+
 // Test database connection
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
+    dbConnectionError = { message: err.message, code: err.code };
     console.error('Database connection error in pg pool:', err.message, err.code);
   } else {
     console.log('Database connected successfully');
   }
+});
+
+// Adding a diagnostic endpoint strictly to see the connection state in prod
+app.get('/api/debug-connection', (req, res) => {
+   res.json({
+       hasUrl: !!process.env.DATABASE_URL,
+       nodeEnv: process.env.NODE_ENV,
+       error: dbConnectionError,
+       timestamp: new Date().toISOString()
+   });
 });
 
 // ===== PROFILES API =====
