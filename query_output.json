@@ -1,0 +1,37 @@
+[
+  {
+    "username": "123456789",
+    "first_name": "Test2",
+    "last_name": "(Cooperative)",
+    "role": "cooperative",
+    "position": null
+  },
+  {
+    "username": "123123213123123",
+    "first_name": "Testing user",
+    "last_name": "(Cooperative)",
+    "role": "cooperative",
+    "position": null
+  },
+  {
+    "username": "admin",
+    "first_name": "XAVIER ANGELO JAMES",
+    "last_name": "LAGATIC",
+    "role": "administrator",
+    "position": "System Administrator"
+  },
+  {
+    "username": "officer.two",
+    "first_name": "RONALD ALLAN",
+    "last_name": "POLAGÑE",
+    "role": "compliance_head",
+    "position": "Compliance Division Head"
+  },
+  {
+    "username": "officer.one",
+    "first_name": "VINCE CARLO",
+    "last_name": "SAN JOAQUIN",
+    "role": "training_head",
+    "position": "Training Division Head"
+  }
+]

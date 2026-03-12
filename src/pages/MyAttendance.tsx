@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
+import {
   Calendar,
   MapPin,
   Clock,
@@ -12,9 +12,19 @@ import {
   XCircle,
   Users,
   Award,
-  Loader2
+  Loader2,
+  FileBadge,
+  Download
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { toast } from '@/hooks/use-toast';
+import { api } from '@/lib/api';
 
 interface AttendanceRecord {
   id: string;
@@ -25,6 +35,8 @@ interface AttendanceRecord {
     id: string;
     title: string;
     date: string;
+    start_date: string;
+    time: string;
     venue: string;
     speaker: string;
     topic: string;
@@ -36,6 +48,7 @@ const MyAttendance = () => {
   const navigate = useNavigate();
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCertificate, setSelectedCertificate] = useState<AttendanceRecord | null>(null);
 
   useEffect(() => {
     loadMyAttendance();
@@ -43,55 +56,34 @@ const MyAttendance = () => {
 
   const loadMyAttendance = async () => {
     try {
-      const mockAttendance: AttendanceRecord[] = [
-        {
-          id: '1',
-          training_id: 'train-001',
-          recorded_at: '2023-12-15T09:00:00Z',
-          method: 'manual',
-          training: {
-            id: 'train-001',
-            title: 'Cooperative Ethics Training',
-            date: '2023-12-15',
-            venue: 'Community Center Hall A',
-            speaker: 'Dr. Maria Santos',
-            topic: 'Ethics and Governance',
-            status: 'completed'
-          }
-        },
-        {
-          id: '2',
-          training_id: 'train-002',
-          recorded_at: '2023-11-28T14:30:00Z',
-          method: 'qr',
-          training: {
-            id: 'train-002',
-            title: 'Financial Management Basics',
-            date: '2023-11-28',
-            venue: 'Training Room B',
-            speaker: 'Prof. Juan dela Cruz',
-            topic: 'Financial Management',
-            status: 'completed'
-          }
-        },
-        {
-          id: '3',
-          training_id: 'train-003',
-          recorded_at: '2023-11-15T10:15:00Z',
-          method: 'manual',
-          training: {
-            id: 'train-003',
-            title: 'Member Relations Workshop',
-            date: '2023-11-15',
-            venue: 'Conference Room C',
-            speaker: 'Ms. Ana Rodriguez',
-            topic: 'Member Relations',
-            status: 'completed'
-          }
-        }
-      ];
+      const currentUserId = localStorage.getItem('userId') || '33333333-3333-3333-3333-333333333333';
+      const { data, error } = await api.getTrainingRegistrations();
 
-      setAttendanceRecords(mockAttendance);
+      if (error) throw error;
+
+      const myRegistrations = (data || []).filter(
+        (reg: any) => reg.officer_id === currentUserId && (reg.status === 'attended' || reg.status === 'completed')
+      );
+
+      const formattedRecords: AttendanceRecord[] = myRegistrations.map((reg: any) => ({
+        id: reg.id,
+        training_id: reg.training_id,
+        recorded_at: reg.created_at || new Date().toISOString(), // Fallback if no specific attendance timestamp exists
+        method: 'manual', // Defaulting as specific attendance method might not exist in current schema
+        training: {
+          id: reg.training?.id || reg.training_id,
+          title: reg.training?.title || 'Unknown Training',
+          date: reg.training?.start_date || new Date().toISOString(),
+          start_date: reg.training?.start_date || new Date().toISOString(),
+          time: reg.training?.time || 'TBA',
+          venue: reg.training?.venue || 'TBA',
+          speaker: reg.training?.speaker || 'TBA',
+          topic: reg.training?.topic || 'General',
+          status: 'completed'
+        }
+      }));
+
+      setAttendanceRecords(formattedRecords);
     } catch (error) {
       console.error('Error loading attendance:', error);
       toast({
@@ -111,7 +103,7 @@ const MyAttendance = () => {
       nfc: { label: 'NFC', class: 'bg-purple-100 text-purple-800' },
       biometric: { label: 'Biometric', class: 'bg-orange-100 text-orange-800' }
     };
-    
+
     const config = methodConfig[method as keyof typeof methodConfig] || methodConfig.manual;
     return (
       <Badge className={config.class}>
@@ -145,7 +137,7 @@ const MyAttendance = () => {
               </Card>
               <Card>
                 <CardContent className="p-6 text-center">
-                  <div className="text-3xl font-bold text-purple-600 mb-2">3</div>
+                  <div className="text-3xl font-bold text-purple-600 mb-2">{attendanceRecords.length}</div>
                   <p className="text-sm text-gray-600">Certificates Earned</p>
                 </CardContent>
               </Card>
@@ -183,19 +175,32 @@ const MyAttendance = () => {
                             {getMethodBadge(record.method)}
                           </div>
                         </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-                          <div className="flex items-center">
-                            <Calendar className="h-4 w-4 mr-2" />
-                            {new Date(record.training.date).toLocaleDateString()}
+                        <div className="flex flex-col md:flex-row gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 flex-1">
+                            <div className="flex items-center">
+                              <Calendar className="h-4 w-4 mr-2" />
+                              {new Date(record.training.start_date || record.training.date).toLocaleDateString()}
+                            </div>
+                            <div className="flex items-center">
+                              <MapPin className="h-4 w-4 mr-2" />
+                              {record.training.venue}
+                            </div>
+                            <div className="flex items-center">
+                              <Clock className="h-4 w-4 mr-2" />
+                              {record.training.time}
+                            </div>
                           </div>
-                          <div className="flex items-center">
-                            <MapPin className="h-4 w-4 mr-2" />
-                            {record.training.venue}
-                          </div>
-                          <div className="flex items-center">
-                            <Clock className="h-4 w-4 mr-2" />
-                            {new Date(record.recorded_at).toLocaleTimeString()}
+
+                          <div className="flex items-end justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full md:w-auto text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                              onClick={() => setSelectedCertificate(record)}
+                            >
+                              <FileBadge className="h-4 w-4 mr-2" />
+                              View Certificate
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -215,21 +220,92 @@ const MyAttendance = () => {
             </Card>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
-              <Button 
-                onClick={() => navigate('/available-trainings')} 
+              <Button
+                onClick={() => navigate('/available-trainings')}
                 className="flex-1"
               >
                 <Users className="h-4 w-4 mr-2" />
                 Browse Available Trainings
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => navigate('/officer-dashboard')}
                 className="flex-1"
               >
                 View Compliance Dashboard
               </Button>
             </div>
+
+            {/* Certificate Visualization Dialog Placeholder */}
+            {selectedCertificate && (
+              <Dialog open={!!selectedCertificate} onOpenChange={() => setSelectedCertificate(null)}>
+                <DialogContent className="sm:max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Award className="h-5 w-5 text-yellow-500" />
+                      Training Certificate
+                    </DialogTitle>
+                    <DialogDescription>
+                      Certificate of Attendance for {selectedCertificate.training.title}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="p-8 border-8 border-double border-gray-200 bg-white text-center space-y-6 m-4 relative overflow-hidden">
+                    {/* Decorative Elements */}
+                    <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-yellow-500 m-2"></div>
+                    <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-yellow-500 m-2"></div>
+                    <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-yellow-500 m-2"></div>
+                    <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-yellow-500 m-2"></div>
+
+                    <h1 className="text-4xl font-serif text-blue-900 font-bold mb-8">Certificate of Attendance</h1>
+
+                    <p className="text-gray-600 text-lg">This is to certify that</p>
+
+                    <h2 className="text-2xl font-bold border-b-2 border-gray-300 pb-2 inline-block min-w-[300px]">
+                      {localStorage.getItem('userName')?.replace('.', ' ') || 'Officer Name'}
+                    </h2>
+
+                    <p className="text-gray-600 text-lg mt-6">has actively participated in and successfully completed</p>
+
+                    <h3 className="text-xl font-semibold text-blue-800 my-4">
+                      {selectedCertificate.training.title}
+                    </h3>
+
+                    <p className="text-gray-600">
+                      held on <span className="font-semibold">{new Date(selectedCertificate.training.start_date || selectedCertificate.training.date).toLocaleDateString()}</span>
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-8 mt-12 pt-8 border-t border-gray-200">
+                      <div>
+                        <div className="border-b border-gray-400 pb-2 mb-2 font-handwriting text-xl">
+                          {selectedCertificate.training.speaker}
+                        </div>
+                        <p className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Speaker / Resource Person</p>
+                      </div>
+                      <div>
+                        <div className="border-b border-gray-400 pb-2 mb-2 font-handwriting text-xl">
+                          CoopWise Admin
+                        </div>
+                        <p className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Training Coordinator</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <Button
+                      className="gap-2"
+                      onClick={() => {
+                        toast({
+                          title: "Downloading...",
+                          description: "Your high-resolution certificate is downloading."
+                        });
+                        setSelectedCertificate(null);
+                      }}
+                    >
+                      <Download className="h-4 w-4" /> Download PDF
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </>
         )}
       </div>

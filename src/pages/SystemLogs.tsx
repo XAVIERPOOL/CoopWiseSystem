@@ -1,16 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  ClipboardCheck, 
-  User, 
-  FileText, 
-  Settings, 
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ClipboardCheck,
+  User,
+  FileText,
+  Settings,
   Activity,
   Search,
-  Clock
+  Clock,
+  Filter,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
@@ -23,18 +34,33 @@ interface Log {
   created_at: string;
 }
 
+const ITEMS_PER_PAGE = 15;
+
 const SystemLogs = () => {
   const [logs, setLogs] = useState<Log[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Filter States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterModule, setFilterModule] = useState('ALL');
+  const [filterAction, setFilterAction] = useState('ALL');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     fetchLogs();
   }, []);
 
+  // Reset to page 1 whenever any filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterModule, filterAction, dateFrom, dateTo]);
+
   const fetchLogs = async () => {
     try {
-      // Fetch logs from our API endpoint
       const response = await fetch('http://localhost:3001/api/activity-logs');
       const data = await response.json();
       if (Array.isArray(data)) {
@@ -65,73 +91,206 @@ const SystemLogs = () => {
     }
   };
 
-  const filteredLogs = logs.filter(log => 
-    log.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.user_name.toLowerCase().includes(searchTerm.toLowerCase())
+  // Compute filtered logs
+  const filteredLogs = useMemo(() => {
+    return logs.filter(log => {
+      // 1. Search Term Filter
+      const matchesSearch =
+        log.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.user_name.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // 2. Module Filter
+      const matchesModule = filterModule === 'ALL' || log.module === filterModule;
+
+      // 3. Action Filter
+      const matchesAction = filterAction === 'ALL' || log.action === filterAction;
+
+      // 4. Date Range Filter
+      let matchesDate = true;
+      if (dateFrom || dateTo) {
+        const logDate = new Date(log.created_at);
+        logDate.setHours(0, 0, 0, 0);
+
+        if (dateFrom) {
+          const from = new Date(dateFrom);
+          from.setHours(0, 0, 0, 0);
+          if (logDate < from) matchesDate = false;
+        }
+        if (dateTo) {
+          const to = new Date(dateTo);
+          to.setHours(23, 59, 59, 999);
+          if (logDate > to) matchesDate = false;
+        }
+      }
+
+      return matchesSearch && matchesModule && matchesAction && matchesDate;
+    });
+  }, [logs, searchTerm, filterModule, filterAction, dateFrom, dateTo]);
+
+  // Compute pagination
+  const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE);
+  const paginatedLogs = filteredLogs.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
   );
 
+  // Unique modules and actions for dropdowns
+  const uniqueModules = Array.from(new Set(logs.map(l => l.module))).filter(Boolean);
+  const uniqueActions = Array.from(new Set(logs.map(l => l.action))).filter(Boolean);
+
   return (
-    <DashboardLayout 
-      title="System Audit Logs" 
-      description="Track system activities and process changes"
+    <DashboardLayout
+      title="System Audit Logs"
+      description="Track system activities and process changes securely"
     >
       <div className="p-6">
-        <Card className="glass-card">
-          <CardHeader>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <Card className="glass-card shadow-sm border-0">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
               <div>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-xl">
                   <Activity className="h-5 w-5 text-blue-600" />
                   Activity History
                 </CardTitle>
-                <CardDescription>Real-time log of all system modifications</CardDescription>
+                <CardDescription>Comprehensive log of all system modifications</CardDescription>
               </div>
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search by user or action..." 
-                  className="pl-8"
+
+              <div className="relative w-full md:w-72">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search user or description..."
+                  className="pl-9 h-10 w-full"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
+
+            {/* Filter Toolbar */}
+            <div className="bg-gray-50/50 p-4 rounded-lg border border-gray-100 flex flex-col lg:flex-row gap-4 items-end">
+
+              <div className="w-full lg:w-48 space-y-1.5">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                  <Filter className="w-3 h-3" /> Module
+                </label>
+                <Select value={filterModule} onValueChange={setFilterModule}>
+                  <SelectTrigger className="h-9 bg-white">
+                    <SelectValue placeholder="All Modules" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Modules</SelectItem>
+                    {uniqueModules.map(m => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="w-full lg:w-48 space-y-1.5">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Action Type
+                </label>
+                <Select value={filterAction} onValueChange={setFilterAction}>
+                  <SelectTrigger className="h-9 bg-white">
+                    <SelectValue placeholder="All Actions" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Actions</SelectItem>
+                    {uniqueActions.map(a => (
+                      <SelectItem key={a} value={a}>{a}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="w-full lg:w-40 space-y-1.5 flex-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Date From
+                </label>
+                <Input
+                  type="date"
+                  className="h-9 bg-white"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </div>
+
+              <div className="w-full lg:w-40 space-y-1.5 flex-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Date To
+                </label>
+                <Input
+                  type="date"
+                  className="h-9 bg-white"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  min={dateFrom}
+                />
+              </div>
+
+              <Button
+                variant="outline"
+                className="h-9 px-4 text-xs font-medium text-gray-500 hover:text-gray-900"
+                onClick={() => {
+                  setFilterModule('ALL');
+                  setFilterAction('ALL');
+                  setDateFrom('');
+                  setDateTo('');
+                  setSearchTerm('');
+                }}
+              >
+                Clear Filters
+              </Button>
+
+            </div>
           </CardHeader>
+
           <CardContent>
-            <ScrollArea className="h-[600px] pr-4">
-              <div className="space-y-4">
+            {/* Logs List Area */}
+            <div className="min-h-[500px]">
+              <div className="space-y-3">
                 {loading ? (
-                  <div className="text-center py-10">Loading logs...</div>
-                ) : filteredLogs.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-                    <Clock className="h-12 w-12 mb-2 opacity-20" />
-                    <p>No activity logs found.</p>
+                  <div className="text-center py-20 text-gray-400 font-medium flex flex-col items-center justify-center">
+                    <Activity className="h-8 w-8 animate-spin mb-4 text-blue-500" />
+                    Fetching system logs...
+                  </div>
+                ) : paginatedLogs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-gray-500 bg-gray-50/30 rounded-lg border border-dashed border-gray-200 mt-4">
+                    <Clock className="h-12 w-12 mb-3 text-gray-300" />
+                    <p className="font-medium text-gray-600">No activity logs found.</p>
+                    <p className="text-sm text-gray-400 mt-1">Try adjusting your filters or search term.</p>
                   </div>
                 ) : (
-                  filteredLogs.map((log) => (
-                    <div key={log.id} className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                      <div className="mt-1 p-2 rounded-full bg-background border shadow-sm">
+                  paginatedLogs.map((log) => (
+                    <div key={log.id} className="group flex items-start gap-4 p-4 rounded-xl border border-gray-100 bg-white hover:border-blue-100 hover:shadow-md transition-all duration-200">
+                      <div className="mt-1 p-2.5 rounded-full bg-blue-50/50 border border-blue-100/50 group-hover:bg-blue-100/50 group-hover:scale-110 transition-all duration-300">
                         {getIcon(log.module)}
                       </div>
                       <div className="flex-1">
-                        <div className="flex justify-between items-start">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                           <div>
-                            <p className="font-medium text-sm text-foreground">
-                              <span className="font-bold text-primary">{log.user_name}</span>
-                              <span className="text-muted-foreground mx-1">performed</span>
-                              <Badge variant="outline" className={`text-xs ${getActionColor(log.action)}`}>
+                            <p className="font-medium text-sm text-gray-900">
+                              <span className="font-bold text-blue-700">{log.user_name}</span>
+                              <span className="text-gray-500 mx-1.5">performed</span>
+                              <Badge variant="outline" className={`text-[10px] tracking-wider uppercase font-bold px-2 py-0.5 ${getActionColor(log.action)}`}>
                                 {log.action}
                               </Badge>
                             </p>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="text-sm text-gray-600 mt-1.5 leading-relaxed">
                               {log.description}
                             </p>
                           </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
-                              {new Date(log.created_at).toLocaleString()}
+                          <div className="flex flex-col items-end gap-1.5 sm:mt-0 mt-2">
+                            <span className="text-xs font-medium text-gray-400 whitespace-nowrap bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
+                              {new Date(log.created_at).toLocaleString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
                             </span>
-                            <Badge variant="secondary" className="text-xs">
+                            <Badge variant="secondary" className="text-[10px] uppercase font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200">
                               {log.module}
                             </Badge>
                           </div>
@@ -141,7 +300,65 @@ const SystemLogs = () => {
                   ))
                 )}
               </div>
-            </ScrollArea>
+            </div>
+
+            {/* Internal Pagination Controls */}
+            {!loading && filteredLogs.length > 0 && (
+              <div className="mt-6 pt-4 border-t flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Showing <span className="font-medium text-foreground">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-medium text-foreground">{Math.min(currentPage * ITEMS_PER_PAGE, filteredLogs.length)}</span> of <span className="font-medium text-foreground">{filteredLogs.length}</span> logs
+                </p>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="h-8 px-2"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="sr-only">Previous Page</span>
+                  </Button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      // Logic to show pages around current page if there are many pages
+                      let pageNum = i + 1;
+                      if (totalPages > 5) {
+                        if (currentPage > 3) {
+                          pageNum = currentPage - 2 + i;
+                          if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                        }
+                      }
+
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`h-8 w-8 p-0 ${currentPage === pageNum ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="h-8 px-2"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="sr-only">Next Page</span>
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

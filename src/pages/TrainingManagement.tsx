@@ -19,6 +19,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  CheckCircle,
   Calendar as CalendarIcon
 } from 'lucide-react';
 import {
@@ -57,6 +58,7 @@ interface TrainingWithRegistrations {
   speaker: string;
   status: string;
   registered: number;
+  target_positions?: string[] | null;
 }
 
 interface Officer {
@@ -94,7 +96,8 @@ const TrainingManagement = () => {
     venue: '',
     capacity: '',
     speaker: '',
-    status: 'upcoming'
+    status: 'upcoming',
+    target_positions: [] as string[]
   });
 
   const [trainings, setTrainings] = useState<TrainingWithRegistrations[]>([]);
@@ -102,6 +105,7 @@ const TrainingManagement = () => {
 
   // View Enrolled States
   const [selectedTrainingEnrollments, setSelectedTrainingEnrollments] = useState<any[]>([]);
+  const [selectedTrainingAttendance, setSelectedTrainingAttendance] = useState<any[]>([]);
   const [viewEnrolledDialogOpen, setViewEnrolledDialogOpen] = useState(false);
   const [selectedTrainingTitle, setSelectedTrainingTitle] = useState<string>('');
 
@@ -165,7 +169,8 @@ const TrainingManagement = () => {
       venue: '',
       capacity: '',
       speaker: '',
-      status: 'upcoming'
+      status: 'upcoming',
+      target_positions: []
     });
     setCreateDialogOpen(false);
     setEditingTraining(null);
@@ -206,6 +211,7 @@ const TrainingManagement = () => {
           capacity: parseInt(formData.capacity) || 30,
           speaker: formData.speaker,
           status: formData.status,
+          target_positions: formData.target_positions,
           updated_by: currentUserId
         });
         if (error) throw error;
@@ -223,6 +229,7 @@ const TrainingManagement = () => {
           capacity: parseInt(formData.capacity) || 30,
           speaker: formData.speaker,
           status: formData.status,
+          target_positions: formData.target_positions,
           created_by: currentUserId
         });
         if (error) throw error;
@@ -263,7 +270,8 @@ const TrainingManagement = () => {
       venue: training.venue,
       capacity: training.capacity.toString(),
       speaker: training.speaker,
-      status: training.status
+      status: training.status,
+      target_positions: Array.isArray(training.target_positions) ? training.target_positions : []
     });
     setEditingTraining(training);
     setCreateDialogOpen(true);
@@ -273,14 +281,46 @@ const TrainingManagement = () => {
     try {
       const { data: registrations } = await api.getTrainingRegistrationsByTraining(trainingId);
       const { data: companions } = await api.getCompanionRegistrationsByTraining(trainingId);
+      const { data: attendanceDocs } = await api.getAttendance(); // Fetch all attendances and filter locally for now since we don't have a by-training endpoint
+
       const enrolledData = (registrations || []).map(registration => ({
         ...registration,
         type: 'officer',
         companions: (companions || []).filter(c => c.officer_id === registration.officer_id)
       }));
+
+      const relatedAttendance = (attendanceDocs || []).filter(a => a.training_id === trainingId);
+
       setSelectedTrainingEnrollments(enrolledData);
+      setSelectedTrainingAttendance(relatedAttendance);
     } catch (error) {
       console.error('Error loading enrolled:', error);
+    }
+  };
+
+  const handleMarkAttendance = async (officerId: string, currentStatus: boolean) => {
+    if (!selectedTrainingId) return;
+    try {
+      if (!currentStatus) {
+        // Mark as attended
+        const currentUserId = localStorage.getItem('userId') || 'system';
+        const { error } = await api.recordAttendance({
+          officer_id: officerId,
+          training_id: selectedTrainingId,
+          recorded_by: currentUserId,
+          method: 'manual',
+          check_in_time: new Date().toISOString()
+        });
+        if (error) throw error;
+        toast({ title: "Checked In", description: "Officer marked as attended" });
+      } else {
+        // Future enhancement: remove attendance if toggled off
+        toast({ title: "Already Checked In", description: "Attendance cannot be revoked manually at this time." });
+      }
+      // Refresh the view
+      handleViewEnrolled(selectedTrainingId);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to record attendance", variant: "destructive" });
     }
   };
 
@@ -308,8 +348,27 @@ const TrainingManagement = () => {
   // --- RENDER HELPERS ---
   const days = getDaysInMonth();
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const availablePositions = Array.from(new Set(officers.map(o => o.position).filter(Boolean))) as string[];
 
+  const currentEnrollmentTraining = trainings.find(t => t.id === selectedTrainingId);
+  const targetPositionsList = currentEnrollmentTraining?.target_positions || [];
+  const eligibleOfficers = officers.filter(o => o.position && targetPositionsList.includes(o.position));
+  const otherOfficers = officers.filter(o => !o.position || !targetPositionsList.includes(o.position));
 
+  const handleBulkEnroll = async (officersToEnroll: Officer[]) => {
+    if (!selectedTrainingId) return;
+    try {
+      await Promise.all(officersToEnroll.map(off =>
+        api.createTrainingRegistration({ training_id: selectedTrainingId, officer_id: off.id })
+      ));
+      toast({ title: "Success", description: "Bulk enrollment completed" });
+      setEnrollmentDialogOpen(false);
+      loadTrainings();
+    } catch (error) {
+      toast({ title: "Warning", description: "Some enrollments may have failed (e.g., they might be already enrolled).", variant: "destructive" });
+      loadTrainings();
+    }
+  };
 
   return (
     <DashboardLayout title="Training Management" description="Manage schedules and track officer compliance">
@@ -396,6 +455,11 @@ const TrainingManagement = () => {
                             >
                               <div className="flex items-center justify-between overflow-hidden">
                                 <span className="truncate">
+                                  {training.target_positions && training.target_positions.length > 0 && (
+                                    <span className="text-[10px] mr-1 px-1 bg-primary text-primary-foreground rounded-sm">
+                                      Targeted
+                                    </span>
+                                  )}
                                   {training.time && <span className="opacity-75 mr-1">{training.time.slice(0, 5)}</span>}
                                   {training.title}
                                 </span>
@@ -403,6 +467,7 @@ const TrainingManagement = () => {
                                   className="ml-1 p-0.5 hover:bg-black/10 rounded-full shrink-0"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    setSelectedTrainingId(training.id);
                                     setSelectedTrainingTitle(training.title);
                                     handleViewEnrolled(training.id);
                                     setViewEnrolledDialogOpen(true);
@@ -475,6 +540,32 @@ const TrainingManagement = () => {
                     <Label>Venue</Label>
                     <Input value={formData.venue} onChange={e => setFormData({ ...formData, venue: e.target.value })} placeholder="Location" required />
                   </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label>Target Positions (Optional)</Label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {availablePositions.map(pos => {
+                        const isSelected = formData.target_positions.includes(pos);
+                        return (
+                          <Badge
+                            key={pos}
+                            variant={isSelected ? "default" : "outline"}
+                            className={`cursor-pointer ${isSelected ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-100'}`}
+                            onClick={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                target_positions: isSelected
+                                  ? prev.target_positions.filter(p => p !== pos)
+                                  : [...prev.target_positions, pos]
+                              }));
+                            }}
+                          >
+                            {pos}
+                          </Badge>
+                        );
+                      })}
+                      {availablePositions.length === 0 && <span className="text-sm text-gray-500">No positions found in roster.</span>}
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Capacity</Label>
@@ -500,6 +591,7 @@ const TrainingManagement = () => {
                           <Trash2 className="h-4 w-4 mr-2" /> Delete
                         </Button>
                         <Button type="button" variant="outline" size="sm" onClick={() => {
+                          setSelectedTrainingId(editingTraining.id);
                           setSelectedTrainingTitle(editingTraining.title);
                           handleViewEnrolled(editingTraining.id);
                           setViewEnrolledDialogOpen(true);
@@ -525,15 +617,45 @@ const TrainingManagement = () => {
 
             {/* Enrollment & View Dialogs (Simpler rendering for brevity, functionality preserved) */}
             <Dialog open={enrollmentDialogOpen} onOpenChange={setEnrollmentDialogOpen}>
-              <DialogContent>
+              <DialogContent className="max-w-xl">
                 <DialogHeader><DialogTitle>Enroll Officer</DialogTitle></DialogHeader>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {officers.map(officer => (
-                    <div key={officer.id} className="flex justify-between items-center p-2 border rounded">
-                      <span>{officer.full_name}</span>
-                      <Button size="sm" onClick={() => handleEnrollOfficer(officer.id)}>Enroll</Button>
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+
+                  {targetPositionsList.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center bg-blue-50 p-2 rounded-md">
+                        <h4 className="font-semibold text-blue-800 text-sm">Eligible Officers (Targeted Roles)</h4>
+                        <Button size="sm" onClick={() => handleBulkEnroll(eligibleOfficers)} disabled={eligibleOfficers.length === 0} className="bg-blue-600 hover:bg-blue-700">
+                          Bulk Enroll Eligible
+                        </Button>
+                      </div>
+                      {eligibleOfficers.length === 0 ? <p className="text-xs text-gray-500 pl-2">No matching officers found.</p> :
+                        eligibleOfficers.map(officer => (
+                          <div key={officer.id} className="flex justify-between items-center p-2 border border-blue-100 bg-blue-50/30 rounded">
+                            <div>
+                              <p className="font-medium text-sm">{officer.full_name}</p>
+                              <p className="text-xs text-gray-500">{officer.position} • {officer.cooperative}</p>
+                            </div>
+                            <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-100" onClick={() => handleEnrollOfficer(officer.id)}>Enroll</Button>
+                          </div>
+                        ))
+                      }
                     </div>
-                  ))}
+                  )}
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-gray-700 text-sm pl-1">{targetPositionsList.length > 0 ? "Other Officers" : "All Officers"}</h4>
+                    {otherOfficers.map(officer => (
+                      <div key={officer.id} className="flex justify-between items-center p-2 border rounded">
+                        <div>
+                          <p className="font-medium text-sm">{officer.full_name}</p>
+                          <p className="text-xs text-gray-500">{officer.position || 'No Position'} • {officer.cooperative || 'No Coop'}</p>
+                        </div>
+                        <Button size="sm" variant="ghost" onClick={() => handleEnrollOfficer(officer.id)}>Enroll</Button>
+                      </div>
+                    ))}
+                  </div>
+
                 </div>
               </DialogContent>
             </Dialog>
@@ -542,13 +664,36 @@ const TrainingManagement = () => {
               <DialogContent className="max-w-xl">
                 <DialogHeader><DialogTitle>Attendees: {selectedTrainingTitle}</DialogTitle></DialogHeader>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {selectedTrainingEnrollments.length === 0 ? <p className="text-gray-500">No attendees yet.</p> :
-                    selectedTrainingEnrollments.map(att => (
-                      <div key={att.id} className="p-2 border rounded bg-gray-50">
-                        <p className="font-medium">{att.full_name || att.officer_name || 'Unknown'}</p>
-                        <p className="text-xs text-gray-500">{att.cooperative || ''}</p>
-                      </div>
-                    ))
+                  {(!selectedTrainingEnrollments || selectedTrainingEnrollments.length === 0) ? <p className="text-gray-500">No attendees yet.</p> :
+                    selectedTrainingEnrollments.map(att => {
+                      const isAttended = (selectedTrainingAttendance || []).some(a => a.officer_id === att?.officer_id);
+                      return (
+                        <div key={att.id} className="p-3 border rounded bg-white flex justify-between items-center shadow-sm">
+                          <div>
+                            <p className="font-medium text-sm">{att.full_name || att.officer_name || 'Unknown'}</p>
+                            <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-3 w-3" /> {att.cooperative || ''}  | {att.position || ''}
+                            </p>
+                          </div>
+                          <div>
+                            {isAttended ? (
+                              <Badge variant="default" className="bg-green-600 hover:bg-green-700 pointer-events-none">
+                                <CheckCircle className="h-3 w-3 mr-1" /> Attended
+                              </Badge>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs border-blue-200 hover:bg-blue-50 text-blue-700"
+                                onClick={() => handleMarkAttendance(att.officer_id, false)}
+                              >
+                                Mark Attended
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
                   }
                 </div>
               </DialogContent>

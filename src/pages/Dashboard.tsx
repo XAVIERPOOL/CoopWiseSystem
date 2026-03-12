@@ -83,12 +83,34 @@ const Dashboard = () => {
   const [suggestions, setSuggestions] = useState<TrainingSuggestion[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+  const [adminStats, setAdminStats] = useState({
+    totalCooperatives: 0,
+    totalOfficers: 0,
+    compliantOfficers: 0,
+    upcomingEvents: 0,
+    pendingRegistrations: 0,
+    pendingMembers: 0,
+    overdueCompliance: 0,
+  });
 
   useEffect(() => {
     if (userRole === "administrator") {
       fetchSuggestions();
+      fetchAdminStats();
     }
   }, [userRole]);
+
+  const fetchAdminStats = async () => {
+    try {
+      const { data, error } = await api.getAdminStats();
+      if (error) throw error;
+      if (data) {
+        setAdminStats(data);
+      }
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+    }
+  };
 
   const fetchSuggestions = async () => {
     try {
@@ -107,15 +129,15 @@ const Dashboard = () => {
   };
 
   const stats = {
-    totalOfficers: 145,
-    compliantOfficers: 89,
+    totalOfficers: adminStats.totalOfficers,
+    compliantOfficers: adminStats.compliantOfficers,
     pendingTrainings: 12,
-    upcomingEvents: 5,
+    upcomingEvents: adminStats.upcomingEvents,
     myCompliance: 75,
-    totalCooperatives: 47,
-    pendingRegistrations: 8,
-    pendingMembers: 15,
-    overdueCompliance: 6,
+    totalCooperatives: adminStats.totalCooperatives,
+    pendingRegistrations: adminStats.pendingRegistrations,
+    pendingMembers: adminStats.pendingMembers,
+    overdueCompliance: adminStats.overdueCompliance,
   };
 
   const monthlyRegistrationData = [
@@ -401,64 +423,78 @@ const Dashboard = () => {
       description="Manage cooperative training programs and monitor compliance"
     >
       <div className="p-6 space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="glass-card">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Cooperatives</p>
-                  <p className="text-2xl font-bold">{stats.totalCooperatives}</p>
-                  <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>+12% this month</span>
-                  </div>
+        <div className="flex flex-wrap items-center gap-3 bg-card p-3 rounded-xl border shadow-sm">
+          <p className="text-sm font-medium text-muted-foreground mr-2">Quick Actions:</p>
+          <Button variant="secondary" size="sm" onClick={() => navigate("/cooperative-registration")} className="gap-2">
+            <Building2 className="h-4 w-4 text-blue-500" /> Cooperatives
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => navigate("/membership-profiling")} className="gap-2">
+            <UserPlus className="h-4 w-4 text-indigo-500" /> Members
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => navigate("/training-management")} className="gap-2">
+            <BookOpen className="h-4 w-4 text-teal-500" /> Trainings
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => navigate("/reports")} className="gap-2">
+            <BarChart3 className="h-4 w-4 text-purple-500" /> Reports
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="overflow-hidden border-none text-white relative bg-gradient-to-br from-blue-600 to-blue-800 shadow-md">
+            <div className="absolute right-[-10%] top-[-10%] opacity-20 pointer-events-none">
+              <Building2 className="h-32 w-32" />
+            </div>
+            <CardContent className="p-5 relative z-10">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium text-blue-100">Total Cooperatives</p>
+                <div className="flex items-end justify-between">
+                  <p className="text-3xl font-bold">{stats.totalCooperatives}</p>
                 </div>
-                <Building2 className="h-8 w-8 text-blue-600 dark:text-blue-400" />
               </div>
             </CardContent>
           </Card>
-          <Card className="glass-card">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Officers</p>
-                  <p className="text-2xl font-bold">{stats.totalOfficers}</p>
-                  <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>+8% this month</span>
-                  </div>
+
+          <Card className="overflow-hidden border-none text-white relative bg-gradient-to-br from-indigo-600 to-indigo-800 shadow-md">
+            <div className="absolute right-[-10%] top-[-10%] opacity-20 pointer-events-none">
+              <Users className="h-32 w-32" />
+            </div>
+            <CardContent className="p-5 relative z-10">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium text-indigo-100">Total Officers</p>
+                <div className="flex items-end justify-between">
+                  <p className="text-3xl font-bold">{stats.totalOfficers}</p>
                 </div>
-                <Users className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
               </div>
             </CardContent>
           </Card>
-          <Card className="glass-card">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs text-muted-foreground">Compliant Officers</p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {stats.compliantOfficers}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {Math.round((stats.compliantOfficers / stats.totalOfficers) * 100)}% compliance rate
+
+          <Card className="overflow-hidden border-none text-white relative bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-md">
+            <div className="absolute right-[-10%] top-[-10%] opacity-20 pointer-events-none">
+              <UserCheck className="h-32 w-32" />
+            </div>
+            <CardContent className="p-5 relative z-10">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium text-emerald-100">Compliant Officers</p>
+                <div className="flex items-end justify-between">
+                  <p className="text-3xl font-bold">{stats.compliantOfficers}</p>
+                  <p className="text-xs text-emerald-100 mb-1">
+                    {stats.totalOfficers > 0 ? Math.round((stats.compliantOfficers / stats.totalOfficers) * 100) : 0}% rate
                   </p>
                 </div>
-                <UserCheck className="h-8 w-8 text-green-600 dark:text-green-400" />
               </div>
             </CardContent>
           </Card>
-          <Card className="glass-card">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs text-muted-foreground">Upcoming Trainings</p>
-                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                    {stats.upcomingEvents}
-                  </p>
-                  <p className="text-xs text-muted-foreground">This month</p>
+
+          <Card className="overflow-hidden border-none text-white relative bg-gradient-to-br from-purple-600 to-purple-800 shadow-md">
+            <div className="absolute right-[-10%] top-[-10%] opacity-20 pointer-events-none">
+              <Calendar className="h-32 w-32" />
+            </div>
+            <CardContent className="p-5 relative z-10">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium text-purple-100">Upcoming Trainings</p>
+                <div className="flex items-end justify-between">
+                  <p className="text-3xl font-bold">{stats.upcomingEvents}</p>
                 </div>
-                <Calendar className="h-8 w-8 text-purple-600 dark:text-purple-400" />
               </div>
             </CardContent>
           </Card>
@@ -625,53 +661,6 @@ const Dashboard = () => {
                   })}
                 </div>
               </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card
-            className="glass-card hover:shadow-soft transition-all cursor-pointer"
-            onClick={() => navigate("/cooperative-registration")}
-            data-testid="card-quick-cooperative"
-          >
-            <CardContent className="p-4 text-center">
-              <Building2 className="h-8 w-8 mx-auto mb-2 text-blue-600 dark:text-blue-400" />
-              <p className="text-sm font-medium">Cooperatives</p>
-              <p className="text-xs text-muted-foreground">Manage registrations</p>
-            </CardContent>
-          </Card>
-          <Card
-            className="glass-card hover:shadow-soft transition-all cursor-pointer"
-            onClick={() => navigate("/membership-profiling")}
-            data-testid="card-quick-members"
-          >
-            <CardContent className="p-4 text-center">
-              <UserPlus className="h-8 w-8 mx-auto mb-2 text-indigo-600 dark:text-indigo-400" />
-              <p className="text-sm font-medium">Members</p>
-              <p className="text-xs text-muted-foreground">Profile management</p>
-            </CardContent>
-          </Card>
-          <Card
-            className="glass-card hover:shadow-soft transition-all cursor-pointer"
-            onClick={() => navigate("/training-management")}
-            data-testid="card-quick-trainings"
-          >
-            <CardContent className="p-4 text-center">
-              <BookOpen className="h-8 w-8 mx-auto mb-2 text-teal-600 dark:text-teal-400" />
-              <p className="text-sm font-medium">Trainings</p>
-              <p className="text-xs text-muted-foreground">Manage events</p>
-            </CardContent>
-          </Card>
-          <Card
-            className="glass-card hover:shadow-soft transition-all cursor-pointer"
-            onClick={() => navigate("/reports")}
-            data-testid="card-quick-reports"
-          >
-            <CardContent className="p-4 text-center">
-              <BarChart3 className="h-8 w-8 mx-auto mb-2 text-purple-600 dark:text-purple-400" />
-              <p className="text-sm font-medium">Reports</p>
-              <p className="text-xs text-muted-foreground">Analytics & insights</p>
             </CardContent>
           </Card>
         </div>

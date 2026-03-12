@@ -212,8 +212,46 @@ class ApiClient {
     contact_person?: string;
     contact_email?: string;
     contact_phone?: string;
-    submitted_documents?: any[];
+    cda_certificate?: File | null;
+    articles_of_cooperation?: File | null;
+    valid_id?: File | null;
   }) {
+    // Check if we have any files to upload to determine if we need FormData
+    const hasFiles = cooperative.cda_certificate || cooperative.articles_of_cooperation || cooperative.valid_id;
+
+    if (hasFiles) {
+      const formData = new FormData();
+      Object.entries(cooperative).forEach(([key, value]) => {
+        // Handle specific file fields directly
+        if (['cda_certificate', 'articles_of_cooperation', 'valid_id'].includes(key)) {
+          if (value instanceof File) {
+            formData.append(key, value);
+          }
+        } else if (value !== undefined && value !== null) {
+          formData.append(key, value.toString());
+        }
+      });
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/cooperatives`, {
+          method: 'POST',
+          body: formData,
+          // Do NOT set Content-Type header when sending FormData, 
+          // fetch automatically sets it with the correct boundary
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return { data, error: null };
+      } catch (error) {
+        return { data: null, error: error as Error };
+      }
+    }
+
+    // Default JSON behavior if no files
     return this.request<any>('/cooperatives', {
       method: 'POST',
       body: JSON.stringify(cooperative),
@@ -341,7 +379,39 @@ class ApiClient {
     due_date?: string;
     year?: number;
     documents?: any[];
+    file?: File | null;
   }) {
+    // If a file is attached, use FormData (multipart/form-data)
+    if (record.file) {
+      const formData = new FormData();
+      Object.entries(record).forEach(([key, value]) => {
+        if (key === 'file' && value instanceof File) {
+          formData.append(key, value);
+        } else if (key === 'documents' && value) {
+          formData.append(key, JSON.stringify(value));
+        } else if (value !== undefined && value !== null) {
+          formData.append(key, value.toString());
+        }
+      });
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/compliance`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return { data, error: null };
+      } catch (error) {
+        return { data: null, error: error as Error };
+      }
+    }
+
+    // Default to JSON if no file
     return this.request<any>('/compliance', {
       method: 'POST',
       body: JSON.stringify(record),
@@ -371,6 +441,11 @@ class ApiClient {
     return this.request<any>(`/compliance/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  // Dashboard Stats
+  async getAdminStats() {
+    return this.request<any>('/dashboard/admin-stats');
   }
 }
 

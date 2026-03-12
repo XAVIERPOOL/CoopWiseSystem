@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,13 +13,24 @@ import {
     Mail,
     Calendar,
     FileText,
-    Edit
+    Edit,
+    Loader2
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import EditOfficerDialog from '@/components/EditOfficerDialog';
+import { api } from '@/lib/api';
+
+const REQUIRED_TRAININGS = [
+    'Governance',
+    'Financial Management',
+    'Leadership',
+    'Risk Management',
+    'Compliance'
+];
 
 interface Officer {
     id: number;
+    profileId: string;
     name: string;
     email: string;
     cooperative: string;
@@ -38,138 +49,75 @@ const OfficerCompliance = () => {
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null);
 
-    const [officers, setOfficers] = useState<Officer[]>([
-        {
-            id: 1,
-            name: 'Juan Miguel Santos',
-            email: 'juan.santos@mmcoop.com',
-            cooperative: 'Capatrasco Cooperative',
-            position: 'Board Member',
-            complianceRate: 95,
-            status: 'compliant',
-            lastTraining: '2024-01-10',
-            missingRequirements: [],
-            completedTrainings: 8,
-            requiredTrainings: 8
-        },
-        {
-            id: 2,
-            name: 'Maria Elena Rodriguez',
-            email: 'maria.rodriguez@nlcoop.com',
-            cooperative: 'Naciatrasco Cooperative',
-            position: 'Secretary',
-            complianceRate: 60,
-            status: 'partial',
-            lastTraining: '2023-11-15',
-            missingRequirements: ['Financial Management', 'Governance Training'],
-            completedTrainings: 3,
-            requiredTrainings: 5
-        },
-        {
-            id: 3,
-            name: 'Roberto Cruz',
-            email: 'roberto.cruz@cviscoop.com',
-            cooperative: 'Arise Cooperative',
-            position: 'Treasurer',
-            complianceRate: 25,
-            status: 'non-compliant',
-            lastTraining: '2023-08-20',
-            missingRequirements: ['Financial Management', 'Audit Training', 'Risk Management'],
-            completedTrainings: 1,
-            requiredTrainings: 4
-        },
-        {
-            id: 4,
-            name: 'Ana Cristina Dela Cruz',
-            email: 'ana.delacruz@mdcoop.com',
-            cooperative: 'LigtasCab Cooperative',
-            position: 'Chairman',
-            complianceRate: 100,
-            status: 'compliant',
-            lastTraining: '2024-01-08',
-            missingRequirements: [],
-            completedTrainings: 6,
-            requiredTrainings: 6
-        },
-        {
-            id: 5,
-            name: 'Carlos Antonio Reyes',
-            email: 'carlos.reyes@stcoop.com',
-            cooperative: 'NagaCityVet Cooperative',
-            position: 'Board Member',
-            complianceRate: 40,
-            status: 'partial',
-            lastTraining: '2023-12-01',
-            missingRequirements: ['Governance Training', 'Ethics Training'],
-            completedTrainings: 2,
-            requiredTrainings: 5
-        },
-        {
-            id: 6,
-            name: 'Patricia Mae Villanueva',
-            email: 'patricia.villanueva@bicol.coop',
-            cooperative: 'Bicol Region Cooperative Union',
-            position: 'Vice Chairman',
-            complianceRate: 85,
-            status: 'compliant',
-            lastTraining: '2023-12-28',
-            missingRequirements: ['Strategic Planning'],
-            completedTrainings: 7,
-            requiredTrainings: 8
-        },
-        {
-            id: 7,
-            name: 'Ferdinand Jose Aquino',
-            email: 'ferdinand.aquino@ilocos.coop',
-            cooperative: 'Calabanga Fishermen Cooperative',
-            position: 'Auditor',
-            complianceRate: 30,
-            status: 'non-compliant',
-            lastTraining: '2023-09-12',
-            missingRequirements: ['Audit Training', 'Financial Management', 'Risk Management', 'Ethics Training'],
-            completedTrainings: 2,
-            requiredTrainings: 6
-        },
-        {
-            id: 8,
-            name: 'Rosario Carmen Bautista',
-            email: 'rosario.bautista@pampanga.coop',
-            cooperative: 'Naga Farmers Cooperative',
-            position: 'Secretary',
-            complianceRate: 75,
-            status: 'partial',
-            lastTraining: '2024-01-05',
-            missingRequirements: ['Member Relations', 'Strategic Planning'],
-            completedTrainings: 6,
-            requiredTrainings: 8
-        },
-        {
-            id: 9,
-            name: 'Emmanuel David Santos',
-            email: 'emmanuel.santos@cebu.coop',
-            cooperative: 'Biggz Diner',
-            position: 'Treasurer',
-            complianceRate: 90,
-            status: 'compliant',
-            lastTraining: '2023-12-20',
-            missingRequirements: ['Legal Compliance'],
-            completedTrainings: 9,
-            requiredTrainings: 10
-        },
-        {
-            id: 10,
-            name: 'Marilou Grace Fernandez',
-            email: 'marilou.fernandez@davao.coop',
-            cooperative: 'Magsaysay Transport Cooperative',
-            position: 'Board Member',
-            complianceRate: 50,
-            status: 'partial',
-            lastTraining: '2023-10-15',
-            missingRequirements: ['Governance Training', 'Leadership Development', 'Cooperative Principles'],
-            completedTrainings: 4,
-            requiredTrainings: 8
+    const [officers, setOfficers] = useState<Officer[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        loadComplianceData();
+    }, []);
+
+    const loadComplianceData = async () => {
+        setLoading(true);
+        try {
+            const { data: profiles, error: profileErr } = await api.getProfiles();
+            if (profileErr) throw profileErr;
+
+            const { data: attendanceLogs, error: attErr } = await api.getAttendance();
+            if (attErr) throw attErr;
+
+            const officerProfiles = (profiles || []).filter(p => p.role === 'officer');
+
+            const processedOfficers = officerProfiles.map((p, index) => {
+                const officerAttendance = (attendanceLogs || []).filter(a => a.officer_id === p.id);
+
+                // Extract unique topics from attended trainings
+                const completedTopicsMap = new Set<string>();
+                let latestDate = '';
+
+                officerAttendance.forEach(att => {
+                    const topic = att.topic || (att.training_title && att.training_title.split('-')[0].trim()); // Best effort guess if topic is missing in result
+                    if (att.topic) completedTopicsMap.add(att.topic);
+
+                    if (!latestDate || new Date(att.recorded_at) > new Date(latestDate)) {
+                        latestDate = att.recorded_at;
+                    }
+                });
+
+                const completedTopics = Array.from(completedTopicsMap);
+                const missingReqs = REQUIRED_TRAININGS.filter(req => !completedTopics.includes(req));
+                const completedRequiredCount = REQUIRED_TRAININGS.length - missingReqs.length;
+                const totalRequired = REQUIRED_TRAININGS.length;
+
+                const rate = totalRequired === 0 ? 100 : Math.round((completedRequiredCount / totalRequired) * 100);
+
+                let complianceStatus = 'non-compliant';
+                if (rate === 100) complianceStatus = 'compliant';
+                else if (rate >= 40) complianceStatus = 'partial';
+
+                return {
+                    id: index + 1, // Legacy UI logic expects number id
+                    profileId: p.id,
+                    name: p.full_name || `${p.first_name} ${p.last_name}`,
+                    email: p.email || 'No email',
+                    cooperative: p.cooperative || 'No Cooperative',
+                    position: p.position || 'Officer',
+                    complianceRate: rate,
+                    status: complianceStatus,
+                    lastTraining: latestDate || 'Never',
+                    missingRequirements: missingReqs,
+                    completedTrainings: completedRequiredCount,
+                    requiredTrainings: totalRequired
+                };
+            });
+
+            setOfficers(processedOfficers);
+        } catch (error) {
+            console.error("Failed to load compliance data:", error);
+            toast({ title: "Error", description: "Failed to load compliance data", variant: "destructive" });
+        } finally {
+            setLoading(false);
         }
-    ]);
+    };
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -243,6 +191,15 @@ const OfficerCompliance = () => {
         partial: officers.filter(o => o.status === 'partial').length,
         nonCompliant: officers.filter(o => o.status === 'non-compliant').length
     };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-12">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <span className="ml-3 text-lg font-medium text-gray-600">Loading compliance data...</span>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -340,7 +297,7 @@ const OfficerCompliance = () => {
                                         <p><strong>Position:</strong> {officer.position}</p>
                                         <p className="flex items-center">
                                             <Calendar className="h-4 w-4 mr-1" />
-                                            <strong>Last Training:</strong> {new Date(officer.lastTraining).toLocaleDateString()}
+                                            <strong>Last Training:</strong> {officer.lastTraining === 'Never' ? 'Never' : new Date(officer.lastTraining).toLocaleDateString()}
                                         </p>
                                     </div>
                                 </div>

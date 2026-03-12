@@ -28,7 +28,7 @@ export const TrainingSuggestionDialog: React.FC<TrainingSuggestionDialogProps> =
     justification: '',
     priority: 'medium'
   });
-  
+
   const { toast } = useToast();
 
   const categories = [
@@ -58,14 +58,24 @@ export const TrainingSuggestionDialog: React.FC<TrainingSuggestionDialogProps> =
     setIsLoading(true);
     try {
       // Get officer ID from localStorage (in real app, would use proper auth)
-      const officerId = localStorage.getItem('userId') || '11111111-1111-1111-1111-111111111111';
+      const officerId = localStorage.getItem('userId') || '44444444-4444-4444-4444-444444444444'; // Default to an officer ID
+
+      if (!officerId) {
+        toast({
+          title: "Authentication Error",
+          description: "Could not identify your account. Please log out and back in.",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
 
       // Insert training suggestion
       const { data, error } = await api.createTrainingSuggestion({
         title: formData.title,
         description: formData.description,
         category: formData.category,
-        preferred_date: formData.preferredDate?.toISOString().split('T')[0],
+        preferred_date: formData.preferredDate ? formData.preferredDate.toISOString().split('T')[0] : undefined,
         justification: formData.justification,
         priority: formData.priority,
         officer_id: officerId
