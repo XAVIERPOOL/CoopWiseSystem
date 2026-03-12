@@ -35,12 +35,13 @@ pool.query('SELECT NOW()', (err, res) => {
 });
 
 // Adding a diagnostic endpoint strictly to see the connection state in prod
-app.get('/api/debug-connection', (req, res) => {
+app.get(['/api/debug-connection', '/debug-connection'], (req, res) => {
    res.json({
        hasUrl: !!process.env.DATABASE_URL,
        nodeEnv: process.env.NODE_ENV,
        error: dbConnectionError,
-       timestamp: new Date().toISOString()
+       timestamp: new Date().toISOString(),
+       path: req.path
    });
 });
 
