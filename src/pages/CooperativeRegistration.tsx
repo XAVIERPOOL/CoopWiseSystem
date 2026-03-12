@@ -190,6 +190,15 @@ const CooperativeRegistration = () => {
     }
   };
 
+  // Helper: reads a File and returns its base64 data URL so we can store and re-open it
+  const readFileAsDataURL = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handleCreateCooperative = async () => {
     if (!formData.name.trim()) {
       toast({
@@ -202,31 +211,29 @@ const CooperativeRegistration = () => {
 
     setSubmitting(true);
     try {
-      // Build submitted_documents metadata from selected file objects
-      const submittedDocuments = [
-        documents.cda_certificate && {
-          type: 'cda_certificate',
-          filename: documents.cda_certificate.name,
-          size: documents.cda_certificate.size,
-          uploaded_at: new Date().toISOString(),
-        },
-        documents.articles_of_cooperation && {
-          type: 'articles_of_cooperation',
-          filename: documents.articles_of_cooperation.name,
-          size: documents.articles_of_cooperation.size,
-          uploaded_at: new Date().toISOString(),
-        },
-        documents.valid_id && {
-          type: 'valid_id',
-          filename: documents.valid_id.name,
-          size: documents.valid_id.size,
-          uploaded_at: new Date().toISOString(),
-        },
-      ].filter(Boolean);
+      // Convert each selected file to a base64 data URL so it can be stored and later opened in a new tab
+      const docEntries = [
+        { key: 'cda_certificate',       label: 'CDA Certificate',        file: documents.cda_certificate },
+        { key: 'articles_of_cooperation', label: 'Articles of Cooperation', file: documents.articles_of_cooperation },
+        { key: 'valid_id',              label: 'Valid ID',                file: documents.valid_id },
+      ];
+
+      const submittedDocuments = await Promise.all(
+        docEntries
+          .filter(d => d.file !== null)
+          .map(async d => ({
+            type: d.key,
+            label: d.label,
+            filename: d.file!.name,
+            size: d.file!.size,
+            mime_type: d.file!.type,
+            data_url: await readFileAsDataURL(d.file!),
+            uploaded_at: new Date().toISOString(),
+          }))
+      );
 
       const { data, error } = await api.createCooperative({
         ...formData,
-        // Send document metadata as JSON — the backend stores this in submitted_documents column
         submitted_documents: submittedDocuments,
       } as any);
       if (error) throw error;
@@ -966,24 +973,40 @@ const CooperativeRegistration = () => {
                   <Label className="text-xs text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-2 mb-3"><FileText className="h-3.5 w-3.5" /> Submitted Documents</Label>
                   {selectedCooperative.submitted_documents && selectedCooperative.submitted_documents.length > 0 ? (
                     <div className="space-y-2">
-                      {selectedCooperative.submitted_documents.map((doc, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors group">
-                          <div className="flex items-center gap-3">
-                            <div className="bg-blue-50 p-2 rounded-lg">
-                              <FileText className="h-4 w-4 text-blue-500" />
+                      {selectedCooperative.submitted_documents.map((doc: any, idx: number) => {
+                        const sizeKB = doc.size ? `${(doc.size / 1024).toFixed(1)} KB` : '';
+                        const hasData = !!doc.data_url;
+                        return (
+                          <div key={idx} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors group">
+                            <div className="flex items-center gap-3">
+                              <div className="bg-blue-50 p-2 rounded-lg">
+                                <FileText className="h-4 w-4 text-blue-500" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-gray-800">{doc.label || doc.type?.replace(/_/g, ' ') || 'Document'}</p>
+                                <p className="text-xs text-gray-400">{doc.filename || 'Attached file'}{sizeKB ? ` · ${sizeKB}` : ''}</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-sm font-bold text-gray-800 capitalize">{doc.type?.replace(/_/g, ' ') || 'Document'}</p>
-                              <p className="text-xs text-gray-400">{doc.filename || 'Attached file'}</p>
-                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={!hasData}
+                              className="h-8 opacity-70 group-hover:opacity-100 transition-opacity gap-1.5 text-xs font-semibold"
+                              onClick={() => {
+                                if (doc.data_url) {
+                                  const win = window.open('', '_blank');
+                                  if (win) {
+                                    win.document.write(`<html><body style="margin:0;background:#000"><img src="${doc.data_url}" style="max-width:100%;display:block;margin:auto" onerror="this.style.display='none';document.body.innerHTML='<iframe src=&quot;${doc.data_url}&quot; style=&quot;width:100%;height:100vh;border:none&quot;></iframe>'"/></body></html>`);
+                                    win.document.close();
+                                  }
+                                }
+                              }}
+                            >
+                              <Eye className="h-3.5 w-3.5" /> Open
+                            </Button>
                           </div>
-                          <Button variant="outline" size="sm" className="h-8 opacity-70 group-hover:opacity-100 transition-opacity" asChild>
-                            <a href={doc.url || '#'} target="_blank" rel="noopener noreferrer">
-                              <Eye className="h-3.5 w-3.5 mr-1" /> View
-                            </a>
-                          </Button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
