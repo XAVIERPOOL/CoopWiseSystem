@@ -719,8 +719,7 @@ app.put('/api/cooperatives/:id', async (req, res) => {
   }
 });
 
-// UPDATED COOPERATIVE STATUS WITH LOGGING
-// UPDATED MEMBER STATUS WITH LOGGING
+// UPDATED MEMBER STATUS WITH LOGGING + OFFICER ACCOUNT CREATION
 app.patch('/api/members/:id/status', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -729,10 +728,24 @@ app.patch('/api/members/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status, review_notes, reviewed_by, membership_date } = req.body;
     
-    // 1. Get Member Name
-    const oldRes = await client.query('SELECT first_name, last_name, status FROM members WHERE id = $1', [id]);
-    const memberName = `${oldRes.rows[0]?.first_name} ${oldRes.rows[0]?.last_name}`;
-    const oldStatus = oldRes.rows[0]?.status;
+    const validStatuses = ['pending', 'approved', 'rejected'];
+    if (!validStatuses.includes(status)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    // 1. Get old member data for logging and profile creation
+    const oldRes = await client.query(
+      'SELECT first_name, last_name, status, email, member_id, role, cooperative_id FROM members WHERE id = $1',
+      [id]
+    );
+    if (oldRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Member not found' });
+    }
+    const oldMember = oldRes.rows[0];
+    const memberName = `${oldMember.first_name} ${oldMember.last_name}`;
+    const oldStatus = oldMember.status;
 
     // 2. Update Status
     const result = await client.query(
@@ -743,13 +756,41 @@ app.patch('/api/members/:id/status', async (req, res) => {
        RETURNING *`,
       [status, review_notes, reviewed_by, status === 'approved' ? membership_date || new Date().toISOString().split('T')[0] : null, id]
     );
-    
-    if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Member not found' });
+
+    // 3. If approving an officer, auto-create a profile account
+    let generatedCredentials = null;
+    const officerRoles = ['President', 'Vice President', 'Secretary', 'Treasurer', 'Auditor', 'Board Member'];
+    if (status === 'approved' && oldStatus !== 'approved' && officerRoles.includes(oldMember.role)) {
+      // Get cooperative name
+      const coopRes = await client.query('SELECT name FROM cooperatives WHERE id = $1', [oldMember.cooperative_id]);
+      const coopName = coopRes.rows.length > 0 ? coopRes.rows[0].name : 'Unknown Cooperative';
+
+      // Use email as username; fall back to member_id
+      const username = oldMember.email || oldMember.member_id || `officer_${Date.now()}`;
+
+      // Generate a random 8-character password
+      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+      let randomPassword = '';
+      for (let i = 0; i < 8; i++) {
+        randomPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      // Only create if no profile with this username exists yet
+      const existingProfile = await client.query('SELECT id FROM profiles WHERE username = $1', [username]);
+      if (existingProfile.rows.length === 0) {
+        await client.query(
+          `INSERT INTO profiles (username, first_name, last_name, role, cooperative, position, password_hash)
+           VALUES ($1, $2, $3, 'officer', $4, $5, $6)`,
+          [username, oldMember.first_name, oldMember.last_name, coopName, oldMember.role, randomPassword]
+        );
+        generatedCredentials = { username, password: randomPassword };
+        console.log(`Officer account created for ${memberName}: username=${username}`);
+      } else {
+        console.log(`Profile already exists for username: ${username}, skipping creation.`);
+      }
     }
 
-    // 3. LOG ACTIVITY
+    // 4. LOG ACTIVITY
     if (reviewed_by) {
       const adminRes = await client.query('SELECT first_name, middle_name, last_name FROM profiles WHERE id = $1', [reviewed_by]);
       let adminName = 'System Admin';
@@ -757,7 +798,6 @@ app.patch('/api/members/:id/status', async (req, res) => {
         const p = adminRes.rows[0];
         adminName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ');
       }
-
       await client.query(
         `INSERT INTO activity_logs (user_id, user_name, action, module, description, target_id)
          VALUES ($1, $2, 'UPDATE', 'Membership', $3, $4)`,
@@ -766,7 +806,7 @@ app.patch('/api/members/:id/status', async (req, res) => {
     }
 
     await client.query('COMMIT');
-    res.json(result.rows[0]);
+    res.json({ ...result.rows[0], generatedCredentials });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error updating member status:', error);
@@ -863,7 +903,7 @@ app.post('/api/members', async (req, res) => {
     const {
       cooperative_id, first_name, middle_name, last_name, suffix, date_of_birth,
       gender, civil_status, address, city, province, email, phone, occupation,
-      tin, photo_url, documents
+      tin, photo_url, documents, role
     } = req.body;
     
     const memberId = `MBR-${Date.now().toString(36).toUpperCase()}`;
@@ -871,12 +911,12 @@ app.post('/api/members', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO members (member_id, cooperative_id, first_name, middle_name, last_name, 
         suffix, date_of_birth, gender, civil_status, address, city, province, email, phone, 
-        occupation, tin, photo_url, documents, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'pending')
+        occupation, tin, photo_url, documents, role, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'pending')
        RETURNING *`,
       [memberId, cooperative_id, first_name, middle_name, last_name, suffix, date_of_birth,
        gender, civil_status, address, city, province, email, phone, occupation, tin, photo_url,
-       JSON.stringify(documents || [])]
+       JSON.stringify(documents || []), role || 'Regular Member']
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -917,34 +957,7 @@ app.put('/api/members/:id', async (req, res) => {
   }
 });
 
-app.patch('/api/members/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, review_notes, reviewed_by, membership_date } = req.body;
-    
-    const validStatuses = ['pending', 'approved', 'rejected'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
-    }
-    
-    const result = await pool.query(
-      `UPDATE members SET 
-        status = $1, review_notes = $2, reviewed_by = $3, reviewed_at = NOW(),
-        membership_date = $4, updated_at = NOW()
-       WHERE id = $5
-       RETURNING *`,
-      [status, review_notes, reviewed_by, status === 'approved' ? membership_date || new Date().toISOString().split('T')[0] : null, id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Member not found' });
-    }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error updating member status:', error);
-    res.status(500).json({ error: 'Failed to update member status' });
-  }
-});
+// (Duplicate handler removed — officer status update is handled above)
 
 app.delete('/api/members/:id', async (req, res) => {
   try {
