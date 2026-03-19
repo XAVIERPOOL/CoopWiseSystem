@@ -719,6 +719,61 @@ app.put('/api/cooperatives/:id', async (req, res) => {
   }
 });
 
+// UPDATED COOPERATIVE STATUS WITH LOGGING
+app.patch('/api/cooperatives/:id/status', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    const { id } = req.params;
+    const { status, review_notes, reviewed_by } = req.body;
+    
+    // 1. Get old status
+    const oldRes = await client.query('SELECT name, status FROM cooperatives WHERE id = $1', [id]);
+    if (oldRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Cooperative not found' });
+    }
+    const oldCoop = oldRes.rows[0];
+
+    // 2. Perform the Update
+    const result = await client.query(
+      `UPDATE cooperatives SET 
+        status = $1, review_notes = $2, reviewed_by = $3, reviewed_at = NOW(),
+        updated_at = NOW()
+       WHERE id = $4
+       RETURNING *`,
+      [status, review_notes, reviewed_by, id]
+    );
+
+    // 3. LOG THE ACTIVITY
+    if (reviewed_by) {
+      const adminRes = await client.query('SELECT first_name, middle_name, last_name FROM profiles WHERE id = $1', [reviewed_by]);
+      let adminName = 'System Admin';
+      
+      if (adminRes.rows.length > 0) {
+        const p = adminRes.rows[0];
+        adminName = [p.first_name, p.middle_name, p.last_name].filter(Boolean).join(' ');
+      }
+
+      await client.query(
+        `INSERT INTO activity_logs (user_id, user_name, action, module, description, target_id)
+         VALUES ($1, $2, 'UPDATE', 'Cooperative', $3, $4)`,
+        [reviewed_by, adminName, `Updated status for cooperative ${oldCoop.name} from ${oldCoop.status} to ${status}`, id]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json(result.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error updating cooperative status:', error);
+    res.status(500).json({ error: 'Failed to update cooperative status' });
+  } finally {
+    client.release();
+  }
+});
+
 // UPDATED MEMBER STATUS WITH LOGGING + OFFICER ACCOUNT CREATION
 app.patch('/api/members/:id/status', async (req, res) => {
   const client = await pool.connect();

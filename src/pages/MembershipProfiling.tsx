@@ -91,12 +91,13 @@ const MembershipProfiling = () => {
       setLoading(true);
       const [membersRes, coopsRes] = await Promise.all([
         api.getMembers(),
-        fetch('http://localhost:3001/api/cooperatives')
+        api.getCooperatives()
       ]);
       if (membersRes.error) throw membersRes.error;
-      const coopsData = await coopsRes.json();
+      if (coopsRes.error) throw coopsRes.error;
+      
       setMembers(membersRes.data || []);
-      setCooperatives(coopsData.filter((c: any) => c.status === 'approved') || []);
+      setCooperatives((coopsRes.data || []).filter((c: any) => c.status === 'approved'));
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({ title: 'Error', description: 'Failed to load membership data', variant: 'destructive' });
@@ -117,8 +118,9 @@ const MembershipProfiling = () => {
     if (!selectedCooperativeId) return;
     setSubmitting(true);
     try {
-      const coopResponse = await fetch('http://localhost:3001/api/cooperatives');
-      const cooperativesData = await coopResponse.json();
+      const coopResponse = await api.getCooperatives();
+      if (coopResponse.error) throw coopResponse.error;
+      const cooperativesData = coopResponse.data || [];
       const matchedCoop = cooperativesData.find((c: any) => c.name === selectedCooperativeId);
       if (!matchedCoop) throw new Error("Could not find cooperative database ID for " + selectedCooperativeId);
 
@@ -132,22 +134,13 @@ const MembershipProfiling = () => {
         tin: 'N/A'
       };
 
-      const response = await fetch('http://localhost:3001/api/members', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const response = await api.createMember(payload);
+      if (response.error) throw response.error;
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Failed to create member');
-      }
-
-      const responseData = await response.json();
       toast({ title: "Member Added", description: "New member added to " + selectedCooperativeId });
 
-      if (responseData.generatedCredentials) {
-        setGeneratedCredentials(responseData.generatedCredentials);
+      if (response.data && response.data.generatedCredentials) {
+        setGeneratedCredentials(response.data.generatedCredentials);
       }
 
       setIsAddMemberOpen(false);
@@ -164,12 +157,8 @@ const MembershipProfiling = () => {
     if (!selectedMember) return;
     setSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/members/${selectedMember.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...selectedMember, ...newMemberData }),
-      });
-      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Failed to update member'); }
+      const response = await api.updateMember(selectedMember.id, { ...selectedMember, ...newMemberData });
+      if (response.error) throw response.error;
       toast({ title: "Success", description: "Member profile updated successfully" });
       setIsEditMemberOpen(false);
       fetchData();
@@ -185,25 +174,21 @@ const MembershipProfiling = () => {
     setSubmitting(true);
     try {
       const currentUserId = localStorage.getItem('userId');
-      const response = await fetch(`http://localhost:3001/api/members/${selectedMember.id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: newStatus,
-          review_notes: reviewNotes,
-          reviewed_by: currentUserId,
-          membership_date: newStatus === 'approved' ? new Date().toISOString() : null
-        }),
+      const response = await api.updateMemberStatus(selectedMember.id, {
+        status: newStatus,
+        review_notes: reviewNotes,
+        reviewed_by: currentUserId || undefined,
+        membership_date: newStatus === 'approved' ? new Date().toISOString() : undefined
       });
-      if (!response.ok) throw new Error('Failed to update');
-      const data = await response.json();
+      if (response.error) throw response.error;
+      const data = response.data || {};
       toast({ title: "Success", description: `Member application ${newStatus}` });
       setIsReviewOpen(false);
       setReviewNotes('');
       fetchData();
       if (data.generatedCredentials) setGeneratedCredentials(data.generatedCredentials);
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to update member status", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to update member status", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }

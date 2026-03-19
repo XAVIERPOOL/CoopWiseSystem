@@ -61,7 +61,7 @@ const SystemLogs = () => {
 
   const fetchLogs = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/activity-logs');
+      const response = await fetch('/api/activity-logs');
       const data = await response.json();
       if (Array.isArray(data)) {
         setLogs(data);
