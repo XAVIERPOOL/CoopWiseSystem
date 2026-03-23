@@ -103,6 +103,7 @@ const TrainingManagement = () => {
   const [selectedTrainingAttendance, setSelectedTrainingAttendance] = useState<any[]>([]);
   const [viewEnrolledDialogOpen, setViewEnrolledDialogOpen] = useState(false);
   const [selectedTrainingTitle, setSelectedTrainingTitle] = useState<string>('');
+  const [selectedForBulk, setSelectedForBulk] = useState<string[]>([]);
 
   useEffect(() => {
     loadTrainings();
@@ -225,14 +226,31 @@ const TrainingManagement = () => {
     } catch (error) {}
   };
 
-  const handleMarkAttendance = async (officerId: string) => {
+  const handleToggleAttendance = async (officerId: string, isPresent: boolean) => {
     if (!selectedTrainingId) return;
     try {
-      await api.recordAttendance({ officer_id: officerId, training_id: selectedTrainingId, recorded_by: 'system', method: 'manual', check_in_time: new Date().toISOString() });
-      toast({ title: 'Checked In', description: 'Officer marked as attended' });
+      if (isPresent) {
+        await api.removeAttendance(selectedTrainingId, officerId);
+        toast({ description: 'Attendance revoked.' });
+      } else {
+        await api.recordAttendance({ officer_id: officerId, training_id: selectedTrainingId, recorded_by: 'system', method: 'manual', check_in_time: new Date().toISOString() });
+        toast({ title: 'Checked In', description: 'Officer marked as attended' });
+      }
       handleViewEnrolled(selectedTrainingId);
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to record attendance', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Failed to update attendance', variant: 'destructive' });
+    }
+  };
+
+  const handleBulkAttendance = async () => {
+    if (!selectedTrainingId || selectedForBulk.length === 0) return;
+    try {
+      await api.recordBulkAttendance({ training_id: selectedTrainingId, officer_ids: selectedForBulk, recorded_by: 'system', method: 'manual' });
+      toast({ description: `Successfully marked ${selectedForBulk.length} officers as present.` });
+      setSelectedForBulk([]); // Clear checkboxes
+      handleViewEnrolled(selectedTrainingId);
+    } catch (error) {
+      toast({ title: 'Bulk Action Failed', variant: 'destructive' });
     }
   };
 
@@ -469,13 +487,20 @@ const TrainingManagement = () => {
                 <div className="space-y-2 col-span-2"><Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Title</Label><Input value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="h-11 rounded-xl glass-input" required /></div>
                 <div className="space-y-2"><Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Topic</Label><Select value={formData.topic} onValueChange={v => setFormData({ ...formData, topic: v })}><SelectTrigger className="h-11 rounded-xl glass-input"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Governance">Governance</SelectItem><SelectItem value="Compliance">Compliance</SelectItem><SelectItem value="Leadership">Leadership</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select></div>
                 <div className="space-y-2"><Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Status</Label><Select value={formData.status} onValueChange={v => setFormData({ ...formData, status: v })}><SelectTrigger className="h-11 rounded-xl glass-input"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="upcoming">Upcoming</SelectItem><SelectItem value="ongoing">Ongoing</SelectItem><SelectItem value="completed">Completed</SelectItem></SelectContent></Select></div>
-                <div className="space-y-2"><Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Date</Label><Input type="date" value={formData.start_date} onChange={e => setFormData({ ...formData, start_date: e.target.value })} className="h-11 rounded-xl glass-input" required /></div>
-                <div className="space-y-2"><Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Time</Label><Input type="time" value={formData.time} onChange={e => setFormData({ ...formData, time: e.target.value })} className="h-11 rounded-xl glass-input" /></div>
-                <div className="space-y-2"><Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Venue</Label><Input value={formData.venue} onChange={e => setFormData({ ...formData, venue: e.target.value })} className="h-11 rounded-xl glass-input" required /></div>
+                <div className="space-y-2"><Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Start Date</Label><Input type="date" value={formData.start_date} onChange={e => setFormData({ ...formData, start_date: e.target.value })} className="h-11 rounded-xl glass-input" required /></div>
+                <div className="space-y-2"><Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">End Date</Label><Input type="date" value={formData.end_date || ''} onChange={e => setFormData({ ...formData, end_date: e.target.value })} className="h-11 rounded-xl glass-input" /></div>
+                <div className="space-y-2"><Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Time</Label><Input type="time" value={formData.time || ''} onChange={e => setFormData({ ...formData, time: e.target.value })} className="h-11 rounded-xl glass-input" /></div>
                 <div className="space-y-2"><Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Capacity</Label><Input type="number" value={formData.capacity} onChange={e => setFormData({ ...formData, capacity: e.target.value })} className="h-11 rounded-xl glass-input" /></div>
+                <div className="space-y-2 col-span-2"><Label className="font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Venue</Label><Input value={formData.venue} onChange={e => setFormData({ ...formData, venue: e.target.value })} className="h-11 rounded-xl glass-input" required /></div>
               </div>
               <div className="flex gap-3 pt-6 border-t border-border/50">
-                {editingTraining && <Button type="button" variant="destructive" className="rounded-xl shadow-sm" onClick={() => handleDelete(editingTraining.id)}>Delete</Button>}
+                {editingTraining && (
+                  <div className="flex gap-2">
+                    <Button type="button" variant="destructive" className="rounded-xl shadow-sm" onClick={() => handleDelete(editingTraining.id)}>Delete</Button>
+                    <Button type="button" variant="secondary" className="rounded-xl shadow-sm" onClick={() => { setSelectedTrainingId(editingTraining.id); setSelectedTrainingTitle(editingTraining.title); handleViewEnrolled(editingTraining.id); setViewEnrolledDialogOpen(true); }}>Attendees</Button>
+                    <Button type="button" variant="outline" className="rounded-xl shadow-sm bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/20" onClick={() => { setSelectedTrainingId(editingTraining.id); setEnrollmentDialogOpen(true); }}>Enroll Officers</Button>
+                  </div>
+                )}
                 <div className="flex gap-3 ml-auto">
                   <Button type="button" variant="ghost" onClick={() => setCreateDialogOpen(false)} className="rounded-xl">Cancel</Button>
                   <Button type="submit" className="rounded-xl font-bold bg-primary text-primary-foreground shadow-glow h-10 px-6">Commit Schedule</Button>
@@ -504,16 +529,60 @@ const TrainingManagement = () => {
 
         <Dialog open={viewEnrolledDialogOpen} onOpenChange={setViewEnrolledDialogOpen}>
           <DialogContent className="max-w-2xl glass-card rounded-3xl p-6 border-white/20">
-            <DialogHeader className="mb-4"><DialogTitle className="text-xl font-black">{selectedTrainingTitle}</DialogTitle><DialogDescription>Current flight manifest & attendance.</DialogDescription></DialogHeader>
-            <div className="overflow-y-auto h-[50vh] pr-4">
+            <DialogHeader className="mb-4">
+              <DialogTitle className="text-xl font-black">{selectedTrainingTitle}</DialogTitle>
+              <div className="flex items-center justify-between mt-2">
+                <DialogDescription>Current flight manifest & check-in yield.</DialogDescription>
+                {selectedTrainingEnrollments.length > 0 && selectedForBulk.length > 0 && (
+                  <Button size="sm" onClick={handleBulkAttendance} className="rounded-xl font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-glow animate-in fade-in zoom-in duration-200">
+                    <CheckCircle className="w-4 h-4 mr-1.5" />
+                    Admit {selectedForBulk.length} Selected
+                  </Button>
+                )}
+              </div>
+              <div className="mt-4 p-3 rounded-2xl bg-muted/30 border border-white/5 shadow-sm">
+                <div className="flex justify-between items-end mb-1.5 px-0.5">
+                  <span className="text-xs font-bold uppercase tracking-widest opacity-80 flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-primary"/> Attendance Yield</span>
+                  <span className="text-sm font-black tabular-nums">{selectedTrainingAttendance.length} / {selectedTrainingEnrollments.length} <span className="text-xs font-bold opacity-50 ml-1">Present</span></span>
+                </div>
+                <div className="h-2.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${selectedTrainingEnrollments.length > 0 ? (selectedTrainingAttendance.length / selectedTrainingEnrollments.length) * 100 : 0}%` }} className="h-full rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-all duration-1000 ease-out" />
+                </div>
+              </div>
+            </DialogHeader>
+            <div className="overflow-y-auto h-[40vh] pr-4">
               <div className="space-y-3">
                 {selectedTrainingEnrollments.length === 0 ? <div className="py-12 text-center text-muted-foreground font-medium">Empty Manifest.</div> : selectedTrainingEnrollments.map(att => {
-                  const attended = selectedTrainingAttendance.some(a => a.officer_id === att.officer_id);
+                  const attRecord = selectedTrainingAttendance.find(a => a.officer_id === att.officer_id);
+                  const isPresent = !!attRecord;
+                  const isSelected = selectedForBulk.includes(att.officer_id);
                   return (
-                    <div key={att.id} className="p-4 rounded-2xl border glass-card flex justify-between items-center shadow-sm">
-                      <div><p className="font-bold">{att.officer_name || att.full_name}</p><p className="text-xs text-muted-foreground">{att.cooperative}</p></div>
-                      {attended ? <Badge className="bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 px-3 py-1 font-bold">Present</Badge> : <Button size="sm" variant="outline" className="rounded-xl shadow-sm text-xs font-bold border-blue-500/30 text-blue-500 hover:bg-blue-500/10" onClick={() => handleMarkAttendance(att.officer_id)}>Verify Arrival</Button>}
-                    </div>
+                    <label key={att.id} className={`p-4 rounded-2xl border flex justify-between items-center shadow-sm cursor-pointer transition-colors ${isPresent ? 'bg-emerald-500/5 border-emerald-500/20' : isSelected ? 'bg-blue-500/5 border-blue-500/30 shadow-glow ring-1 ring-blue-500/20' : 'glass-card border-white/10 hover:bg-muted/50'}`}>
+                      <div className="flex items-center gap-4">
+                        {!isPresent && (
+                          <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${isSelected ? 'bg-blue-500 border-blue-500 text-white' : 'border-muted-foreground/30 bg-background hover:border-blue-500/50'}`}>
+                            {isSelected && <CheckSquare className="w-3.5 h-3.5" />}
+                          </div>
+                        )}
+                        <input type="checkbox" className="hidden" disabled={isPresent} checked={isSelected} onChange={() => setSelectedForBulk(p => p.includes(att.officer_id) ? p.filter(id => id !== att.officer_id) : [...p, att.officer_id])} />
+                        <div>
+                          <p className={`font-bold ${isPresent ? 'text-emerald-500' : ''}`}>{att.officer_name || att.full_name}</p>
+                          <p className="text-xs text-muted-foreground opacity-80">{att.cooperative}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5">
+                        {isPresent ? (
+                           <div className="flex items-center gap-2">
+                             {attRecord.check_in_time && <span className="text-[10px] font-bold text-muted-foreground px-2 py-0.5 rounded bg-background shadow-sm border border-white/5 opacity-70"><Clock className="w-2.5 h-2.5 inline mr-1 -mt-0.5 text-emerald-500" />{attRecord.check_in_time.slice(0,5)}</span>}
+                             <Badge onClick={(e) => { e.preventDefault(); handleToggleAttendance(att.officer_id, true); }} className="cursor-pointer bg-emerald-500 text-white shadow-[0_4px_10px_rgba(16,185,129,0.3)] hover:bg-red-500 hover:shadow-red-500/30 transition-all font-bold px-3 py-1 group">
+                               <span className="group-hover:hidden">Present</span><span className="hidden group-hover:inline">Revoke</span>
+                             </Badge>
+                           </div>
+                        ) : (
+                          <Button size="sm" variant="outline" className="rounded-xl shadow-sm text-xs font-black border-blue-500/30 text-blue-500 hover:bg-blue-500/10 hover:text-blue-600" onClick={(e) => { e.preventDefault(); handleToggleAttendance(att.officer_id, false); }}>Verify Arrival</Button>
+                        )}
+                      </div>
+                    </label>
                   );
                 })}
               </div>

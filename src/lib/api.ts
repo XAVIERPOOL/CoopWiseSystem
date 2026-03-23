@@ -121,6 +121,14 @@ class ApiClient {
     });
   }
 
+  async removeAttendance(trainingId: string, officerId: string) {
+    return this.request<any>(`/attendance/${trainingId}/${officerId}`, { method: 'DELETE' });
+  }
+
+  async recordBulkAttendance(data: { training_id: string; officer_ids: string[]; recorded_by: string; method: string; }) {
+    return this.request<any>('/attendance/bulk', { method: 'POST', body: JSON.stringify(data) });
+  }
+
   // Companion Registrations
   async getCompanionRegistrations() {
     return this.request<any[]>('/companion-registrations');

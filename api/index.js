@@ -1236,4 +1236,35 @@ process.on('SIGTERM', () => {
 });
 
 // Export the app for Vercel Serverless Functions
+// ===== ATTENDANCE ENHANCEMENTS =====
+app.delete('/api/attendance/:training_id/:officer_id', async (req, res) => {
+  try {
+    const { training_id, officer_id } = req.params;
+    await pool.query('DELETE FROM attendance WHERE training_id = $1 AND officer_id = $2', [training_id, officer_id]);
+    res.json({ message: 'Attendance revoked' });
+  } catch (error) {
+    console.error('Error revoking attendance:', error);
+    res.status(500).json({ error: 'Failed to revoke attendance' });
+  }
+});
+
+app.post('/api/attendance/bulk', async (req, res) => {
+  try {
+    const { training_id, officer_ids, recorded_by, method } = req.body;
+    if (!officer_ids || !officer_ids.length) return res.status(400).json({ error: 'No officers provided' });
+    for (const officer_id of officer_ids) {
+      await pool.query(
+        `INSERT INTO attendance (officer_id, training_id, recorded_by, method)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (officer_id, training_id) DO UPDATE SET recorded_at = NOW()`,
+        [officer_id, training_id, recorded_by, method]
+      );
+    }
+    res.status(201).json({ message: 'Bulk attendance recorded' });
+  } catch (error) {
+    console.error('Error bulk recording attendance:', error);
+    res.status(500).json({ error: 'Failed to bulk record attendance' });
+  }
+});
+
 export default app;
