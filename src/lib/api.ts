@@ -447,6 +447,11 @@ class ApiClient {
   async getAdminStats() {
     return this.request<any>('/dashboard/admin-stats');
   }
+
+  // Activity Logs
+  async getActivityLogs() {
+    return this.request<any[]>('/activity-logs');
+  }
 }
 
 export const api = new ApiClient();

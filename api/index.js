@@ -1182,6 +1182,39 @@ app.delete('/api/compliance/:id', async (req, res) => {
   }
 });
 
+// ===== DASHBOARD STATS API =====
+app.get('/api/dashboard/admin-stats', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM cooperatives) as "totalCooperatives",
+        (SELECT COUNT(*) FROM members) as "totalOfficers",
+        (SELECT COUNT(*) FROM members WHERE status = 'approved') as "compliantOfficers",
+        (SELECT COUNT(*) FROM trainings WHERE date > CURRENT_DATE) as "upcomingEvents",
+        (SELECT COUNT(*) FROM cooperatives WHERE status = 'pending') as "pendingRegistrations",
+        (SELECT COUNT(*) FROM members WHERE status = 'pending') as "pendingMembers",
+        (SELECT COUNT(*) FROM compliance_records WHERE status = 'overdue' OR (deadline < CURRENT_DATE AND status != 'compliant')) as "overdueCompliance"
+    `);
+    
+    // Parse strings from COUNT(*) back to integers
+    const stats = result.rows[0];
+    const payload = {
+      totalCooperatives: parseInt(stats.totalCooperatives || "0", 10),
+      totalOfficers: parseInt(stats.totalOfficers || "0", 10),
+      compliantOfficers: parseInt(stats.compliantOfficers || "0", 10),
+      upcomingEvents: parseInt(stats.upcomingEvents || "0", 10),
+      pendingRegistrations: parseInt(stats.pendingRegistrations || "0", 10),
+      pendingMembers: parseInt(stats.pendingMembers || "0", 10),
+      overdueCompliance: parseInt(stats.overdueCompliance || "0", 10)
+    };
+    
+    res.json(payload);
+  } catch (error) {
+    console.error('Error fetching admin stats:', error);
+    res.status(500).json({ error: 'Failed to fetch admin stats' });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'API server is running' });

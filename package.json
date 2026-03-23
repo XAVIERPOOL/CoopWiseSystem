@@ -53,6 +53,7 @@
     "embla-carousel-react": "^8.3.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
+    "framer-motion": "^12.38.0",
     "helmet": "^8.1.0",
     "hpp": "^0.2.3",
     "input-otp": "^1.2.4",
