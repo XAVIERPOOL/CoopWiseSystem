@@ -13,32 +13,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, CheckCircle, Clock, FileText, Search, Filter, Folder, ArrowLeft, ArrowRight, Download, ExternalLink } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
+import { AlertCircle, CheckCircle, Clock, Search, ArrowLeft, ArrowRight, Download, ExternalLink, ShieldCheck, FileCheck2, Info, Building2 } from 'lucide-react';
 
-// Define interfaces for type safety
 interface ComplianceRecord {
-  id: string;
+  id: string | number;
   cooperative_name: string;
   cooperative_type?: string;
   requirement_name: string;
@@ -49,7 +36,6 @@ interface ComplianceRecord {
   file_url?: string;
 }
 
-// Static Categories Definition
 const COOPERATIVE_CATEGORIES = [
   { id: 'Agriculture', label: 'Agriculture Cooperatives', description: 'Farming, production, and agrarian compliance requirements.' },
   { id: 'Consumers', label: 'Consumers Cooperatives', description: 'Cooperatives for the distribution of consumer goods and services.' },
@@ -61,72 +47,16 @@ const COOPERATIVE_CATEGORIES = [
   { id: 'Transport', label: 'Transport Cooperatives', description: 'Transport services and logistics compliance monitoring.' },
 ];
 
-// Mock Data for visualization
-const MOCK_RECORDS: ComplianceRecord[] = [
-  { id: '1', cooperative_name: 'BICOL CARDIOVASCULAR DIAGNOSTIC COOPERATIVE (BCDC)', cooperative_type: 'Health Service', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-15', deadline: '2024-04-30', file_url: '/dummy-file.pdf' },
-  { id: '2', cooperative_name: 'BICOL CENTRAL STATION CREDIT COOPERATIVE (BICEST CC)', cooperative_type: 'Credit', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-20', deadline: '2024-04-30' },
-  { id: '3', cooperative_name: 'BICOL ENTREPRENEURS AND TRADERS CREDIT COOPERATIVE (BETCO)', cooperative_type: 'Credit', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-04-01', deadline: '2024-04-30' },
-  { id: '4', cooperative_name: 'BICOL MEDICAL CENTER G110 MULTIPURPOSE COOPERATIVE (BMC G110 MPC)', cooperative_type: 'Multipurpose', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-02-10', deadline: '2024-04-30' },
-  { id: '5', cooperative_name: 'BICOL PAROLE AND PROBATION ADMINISTRATION EMPLOYEES CREDIT COOPERATIVE (BPPAECC)', cooperative_type: 'Credit', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-01-25', deadline: '2024-04-30' },
-  { id: '6', cooperative_name: 'BICOL PRIME CREDIT COOPERATIVE (BPCC)', cooperative_type: 'Credit', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-05', deadline: '2024-04-30' },
-  { id: '7', cooperative_name: 'BICOL TRANSPORT SERVICE COOPERATIVE FEDERATION (BITSCOMFED)', cooperative_type: 'Federation', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-04-10', deadline: '2024-04-30' },
-  { id: '8', cooperative_name: 'BIKOLANAS AGRICULTURE COOPERATIVE (BIKOLANAS)', cooperative_type: 'Agriculture', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-28', deadline: '2024-04-30' },
-  { id: '9', cooperative_name: 'CAMARINES SUR ELEMENTARY AND SECONDARY TEACHERS AND EMPLOYEES CREDIT COOPERATIVE (CASESTECCO)', cooperative_type: 'Credit', requirement_name: 'Newly Registered', status: 'compliant', submitted_date: '2024-11-15', deadline: '2025-04-30', file_url: '/dummy-file.pdf', reviewer_notes: 'Newly Registered' },
-  { id: '10', cooperative_name: 'CAMARINES SUR MUSLIM COMMUNITY CONSUMERS COOPERATIVE', cooperative_type: 'Consumers', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-02-20', deadline: '2024-04-30' },
-  { id: '11', cooperative_name: 'CAROLINA PANICUASON TRANSPORT COOPERATIVE (CAPATRANSCO)', cooperative_type: 'Transport', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-01-15', deadline: '2024-04-30' },
-  { id: '12', cooperative_name: 'CASURECO II EMPLOYEES MULTIPURPOSE COOPERATIVE (CEMPC)', cooperative_type: 'Multipurpose', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-30', deadline: '2024-04-30' },
-  { id: '13', cooperative_name: 'CENTRO PANGANIBAN DEL ROSARIO TRANSPORT COOPERATIVE (CEPDELTRANSCO)', cooperative_type: 'Transport', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-04-05', deadline: '2024-04-30' },
-  { id: '14', cooperative_name: 'DEL ROSARIO PANGANIBAN CENTRO BAGONG PAG-ASA TRANSPORT COOPERATIVE (DCPC-BAPAGTRANSCO)', cooperative_type: 'Transport', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-02-28', deadline: '2024-04-30' },
-  { id: '15', cooperative_name: 'D\'MARILLAC\'S MULTIPURPOSE AND TRANSPORT SERVICE COOPERATIVE', cooperative_type: 'Transport', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-12', deadline: '2024-04-30' },
-  { id: '16', cooperative_name: 'FEDERATION OF AGRICULTURE COOPERATIVES IN CAMARINES SUR (FACCS)', cooperative_type: 'Federation', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-04-12', deadline: '2024-04-30' },
-  { id: '17', cooperative_name: 'GOLDEN BLUE CONSUMERS COOPERATIVE', cooperative_type: 'Consumers', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-01-10', deadline: '2024-04-30' },
-  { id: '18', cooperative_name: 'GOLDEN HIGHLANDS AGRICULTURE COOPERATIVE', cooperative_type: 'Agriculture', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-22', deadline: '2024-04-30' },
-  { id: '19', cooperative_name: 'GREEN AND GOLD MULTIPURPOSE COOPERATIVE (GGMPC)', cooperative_type: 'Multipurpose', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-04-18', deadline: '2024-04-30' },
-  { id: '20', cooperative_name: 'MAGSAYSAY ALLIED TRANSPORT COOPERATIVE (MATCO)', cooperative_type: 'Transport', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-02-14', deadline: '2024-04-30' },
-  { id: '21', cooperative_name: 'METRO NAGA WATER DISTRICT EMPLOYEES MULTIPURPOSE COOPERATIVE (MNWD EMPC)', cooperative_type: 'Multipurpose', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-08', deadline: '2024-04-30' },
-  { id: '22', cooperative_name: 'MOTHER SETON HOSPITAL EMPLOYEES CREDIT COOPERATIVE (MSH ECC)', cooperative_type: 'Credit', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-01-20', deadline: '2024-04-30' },
-  { id: '23', cooperative_name: 'MULTI-AGRI-FOREST AND COMMUNITY DEVELOPMENT COOPERATIVE (MAFCOOP)', cooperative_type: 'Multipurpose', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-04-02', deadline: '2024-04-30' },
-  { id: '24', cooperative_name: 'NAGA CALABANGA NORTHBOUND TRANSPORT COOPERATIVE', cooperative_type: 'Transport', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-18', deadline: '2024-04-30' },
-  { id: '25', cooperative_name: 'NAGA CITY ALLIED TRANSPORT COOPERATIVE (NACIATRASCO)', cooperative_type: 'Transport', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-02-05', deadline: '2024-04-30' },
-  { id: '26', cooperative_name: 'NAGA CITY EMPLOYEES & WORKERS COOPERATIVE (NACEMWCO)', cooperative_type: 'Credit', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-01-30', deadline: '2024-04-30' },
-  { id: '27', cooperative_name: 'NAGA CITY MIGRANT WORKERS CONSUMERS COOPERATIVE (NACIMICCO)', cooperative_type: 'Consumers', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-04-20', deadline: '2024-04-30' },
-  { id: '28', cooperative_name: 'NAGA CITY PEOPLE\'S MALL CREDIT COOPERATIVE (NACIPEMCCO)', cooperative_type: 'Credit', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-25', deadline: '2024-04-30' },
-  { id: '29', cooperative_name: 'NAGA CITY VISUALLY IMPAIRED TRANSPORT COOPERATIVE (NACIVITRANSCO)', cooperative_type: 'Transport', requirement_name: 'Newly Registered', status: 'compliant', submitted_date: '2024-10-10', deadline: '2025-04-30', reviewer_notes: 'Newly Registered' },
-  { id: '30', cooperative_name: 'NAGA COLLEGE FOUNDATION MULTIPURPOSE COOPERATIVE (NCF MPC)', cooperative_type: 'Multipurpose', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-02-22', deadline: '2024-04-30' },
-  { id: '31', cooperative_name: 'NAGA IMAGING CENTER COOPERATIVE (NICC)', cooperative_type: 'Health Service', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-01-18', deadline: '2024-04-30' },
-  { id: '32', cooperative_name: 'NAGA-DARAGA TRANSPORT COOPERATIVE (NADATRANSCO)', cooperative_type: 'Transport', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-10', deadline: '2024-04-30' },
-  { id: '33', cooperative_name: 'PAGLAOM CREDIT COOPERATIVE (PAGLAOM CC)', cooperative_type: 'Credit', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-04-08', deadline: '2024-04-30' },
-  { id: '34', cooperative_name: 'PEACE AND UNITY MULTIPURPOSE COOPERATIVE (PUMPCO)', cooperative_type: 'Multipurpose', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-02-12', deadline: '2024-04-30' },
-  { id: '35', cooperative_name: 'PHILIPPINE FEDERATION OF CREDIT COOPERATIVES - BICOL (PFCCO - BICOL)', cooperative_type: 'Federation', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-01-28', deadline: '2024-04-30' },
-  { id: '36', cooperative_name: 'PINAG-ISANG SAMAHAN TSUPER TRISEKEL OPERATOR SA NAGA DEVELOPMENT MULTIPURPOSE & TRANSPORT SERVICE COOPERATIVE (PISTTON)', cooperative_type: 'Multipurpose', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-14', deadline: '2024-04-30' },
-  { id: '37', cooperative_name: 'SAN FELIPE NAGA TRANSPORT COOPERATIVE (SAFETRANSCO)', cooperative_type: 'Transport', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-04-15', deadline: '2024-04-30' },
-  { id: '38', cooperative_name: 'SAN ISIDRO (SN) DEVELOPMENT COOPERATIVE (SIDECO)', cooperative_type: 'Multipurpose', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-02-26', deadline: '2024-04-30' },
-  { id: '39', cooperative_name: 'ST. LOUISE COOPERATIVE', cooperative_type: 'Health Service', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-02', deadline: '2024-04-30' },
-  { id: '40', cooperative_name: 'SUGAR PLANTERS AGRICULTURE COOPERATIVE', cooperative_type: 'Agriculture', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-01-08', deadline: '2024-04-30' },
-  { id: '41', cooperative_name: 'TRADE CREDIT COOPERATIVE (TCC)', cooperative_type: 'Credit', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-04-05', deadline: '2024-04-30' },
-  { id: '42', cooperative_name: 'UMASARIG AGRICULTURE COOPERATIVE (UMACOOP)', cooperative_type: 'Agriculture', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-02-16', deadline: '2024-04-30' },
-  { id: '43', cooperative_name: 'UNIFIED LABOR SERVICE COOPERATIVE', cooperative_type: 'Labor Service', requirement_name: 'Certificate of Compliance', status: 'compliant', submitted_date: '2024-03-26', deadline: '2024-04-30' },
-  { id: '44', cooperative_name: 'USWAG FARMERS AGRICULTURE COOPERATIVE (UFAC)', cooperative_type: 'Agriculture', requirement_name: 'Newly Registered', status: 'compliant', submitted_date: '2024-09-15', deadline: '2025-04-30', reviewer_notes: 'Newly Registered' },
-];
-
 const RegulatoryCompliance = () => {
   const [records, setRecords] = useState<ComplianceRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // View State
   const [view, setView] = useState<'categories' | 'list'>('categories');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Filter/Search State for List View
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-
-  // Dialog/Update State
-  const [selectedRecord, setSelectedRecord] = useState<ComplianceRecord | null>(null);
-  const [status, setStatus] = useState<string>('');
-  const [notes, setNotes] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchRecords();
@@ -135,94 +65,66 @@ const RegulatoryCompliance = () => {
   const fetchRecords = async () => {
     try {
       setLoading(true);
-
-      // Simulate network request
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      console.log("Using predefined 44 cooperatives data for Regulatory Compliance");
-
-      // Load from localStorage to persist across hard refreshes
-      const savedRecords = localStorage.getItem('mockComplianceRecords');
-      if (savedRecords) {
-        setRecords(JSON.parse(savedRecords));
-      } else {
-        // First load: save default MOCK_RECORDS to localStorage
-        localStorage.setItem('mockComplianceRecords', JSON.stringify(MOCK_RECORDS));
-        setRecords([...MOCK_RECORDS]);
-      }
+      const { data, error } = await api.getComplianceRecords();
+      if (error) throw error;
+      setRecords(data || []);
     } catch (error) {
       console.error("Failed to fetch records", error);
-      setRecords([...MOCK_RECORDS]);
+      toast({
+        title: "Connection Error",
+        description: "Could not load compliance records from the database.",
+        variant: "destructive"
+      });
+      setRecords([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateStatus = async () => {
-    if (!selectedRecord) return;
-
+  const handleUpdateStatus = async (record: ComplianceRecord, newStatus: string) => {
     try {
       const currentUserId = localStorage.getItem('userId');
-
       if (!currentUserId) {
-        toast({
-          title: "Error",
-          description: "User session invalid. Please login again to update records.",
-          variant: "destructive"
-        });
+        toast({ title: "Error", description: "Not logged in.", variant: "destructive" });
         return;
       }
 
-      const updateData = {
-        status: status,
-        reviewer_notes: notes,
+      const { data, error } = await api.updateComplianceStatus(record.id.toString(), {
+        status: newStatus as any,
         reviewed_by: currentUserId,
         submitted_date: new Date().toISOString()
-      };
-
-      const { error } = await api.updateComplianceStatus(selectedRecord.id, updateData as any);
-
-      if (!error) {
-        toast({
-          title: "Status Updated",
-          description: `Compliance record marked as ${status}`,
-        });
-        setIsDialogOpen(false);
-        fetchRecords(); // Refresh list to reflect changes
-      } else {
-        throw new Error(error.message || 'Failed to update');
-      }
-    } catch (error) {
-      toast({
-        title: "Update Failed",
-        description: "Could not update the compliance record.",
-        variant: "destructive",
       });
+
+      if (error) throw error;
+
+      // Update locally for immediate UX
+      setRecords(records.map(r => r.id === record.id ? { ...r, status: newStatus as any } : r));
+
+      toast({
+        title: "Status Updated",
+        description: `${record.cooperative_name} marked as ${newStatus}`
+      });
+    } catch (error) {
+      console.error("Update failed", error);
+      toast({ title: "Update Failed", description: "Network error occurred.", variant: "destructive" });
     }
   };
 
   const categoryMetrics = useMemo(() => {
     const metrics: Record<string, { compliantCount: number; pendingCount: number }> = {};
-
-    // Initialize with 0 for all static categories
     COOPERATIVE_CATEGORIES.forEach(cat => {
       metrics[cat.id] = { compliantCount: 0, pendingCount: 0 };
     });
 
     records.forEach(record => {
-      // Find matching category ID exactly
       const typeStr = record.cooperative_type || 'Uncategorized';
-      // Find ensuring exact string casing match, falling back to uncategorized if spelling is slightly off
       let matchedCategory = COOPERATIVE_CATEGORIES.find(
         cat => cat.id.toLowerCase() === typeStr.toLowerCase().trim()
       )?.id || 'Uncategorized';
 
       if (metrics[matchedCategory]) {
-        if (record.status === 'compliant') {
-          metrics[matchedCategory].compliantCount++;
-        } else if (record.status === 'pending') {
-          metrics[matchedCategory].pendingCount++;
-        }
+        if (record.status === 'compliant') metrics[matchedCategory].compliantCount++;
+        else if (record.status === 'pending') metrics[matchedCategory].pendingCount++;
       }
     });
 
@@ -232,7 +134,7 @@ const RegulatoryCompliance = () => {
   const handleCategoryClick = (category: string) => {
     setSelectedCategory(category);
     setView('list');
-    setSearchTerm(''); // Reset search when entering a category
+    setSearchTerm('');
     setStatusFilter('all');
   };
 
@@ -242,18 +144,16 @@ const RegulatoryCompliance = () => {
   };
 
   const overallMetrics = useMemo(() => {
-    let compliant = 0;
-    let pending = 0;
-    let nonCompliant = 0;
+    let compliant = 0, pending = 0, nonCompliant = 0;
     records.forEach(r => {
       if (r.status === 'compliant') compliant++;
       else if (r.status === 'pending') pending++;
-      else if (r.status === 'non-compliant') nonCompliant++;
+      else if (r.status === 'non-compliant' || r.status === 'non_compliant') nonCompliant++;
     });
     return [
-      { name: 'Compliant', value: compliant, color: '#10b981' },
-      { name: 'Pending', value: pending, color: '#f59e0b' },
-      { name: 'Non-Compliant', value: nonCompliant, color: '#ef4444' }
+      { name: 'Compliant', value: compliant, color: '#10b981' }, // Emerald
+      { name: 'Pending Review', value: pending, color: '#f59e0b' }, // Amber
+      { name: 'Non-Compliant', value: nonCompliant, color: '#f43f5e' } // Rose
     ];
   }, [records]);
 
@@ -276,50 +176,39 @@ const RegulatoryCompliance = () => {
     link.click();
     document.body.removeChild(link);
 
-    toast({
-      title: "Export Successful",
-      description: "Compliance records have been downloaded to your device.",
-    });
+    toast({ title: "Export Successful", description: "Records downloaded successfully." });
   };
 
   const getDeadlineStatus = (deadlineStr: string, status: string) => {
     if (status === 'compliant') return 'normal';
+    if (!deadlineStr) return 'normal';
+    
     const deadline = new Date(deadlineStr);
     const today = new Date();
-    // Reset time for accurate day comparison
     today.setHours(0, 0, 0, 0);
     deadline.setHours(0, 0, 0, 0);
 
-    const diffTime = deadline.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
+    const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     if (diffDays < 0) return 'overdue';
-    if (diffDays <= 7) return 'upcoming';
+    if (diffDays <= 14) return 'upcoming';
     return 'normal';
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadgeStyles = (status: string) => {
     switch (status) {
-      case 'compliant': return 'bg-green-100 text-green-800 hover:bg-green-100';
-      case 'non-compliant': return 'bg-red-100 text-red-800 hover:bg-red-100';
-      default: return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100';
+      case 'compliant': return 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)] select-none';
+      case 'non-compliant': 
+      case 'non_compliant': return 'bg-rose-100 text-rose-800 border-rose-300 shadow-[0_0_12px_rgba(244,63,94,0.3)] select-none';
+      default: return 'bg-amber-100 text-amber-800 border-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.3)] select-none';
     }
   };
 
   const filteredRecords = useMemo(() => {
     let result = records.filter(record => {
       if (!selectedCategory) return false;
-
-      // Filter by category match
       const typeStr = record.cooperative_type || 'Uncategorized';
-      const isMatch = typeStr.toLowerCase().trim() === selectedCategory.toLowerCase().trim();
-
-      if (!isMatch) return false;
-
-      // Filter by status
+      if (typeStr.toLowerCase().trim() !== selectedCategory.toLowerCase().trim()) return false;
       if (statusFilter !== 'all' && record.status !== statusFilter) return false;
-
-      // Filter by search term
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
         return (
@@ -327,12 +216,12 @@ const RegulatoryCompliance = () => {
           record.requirement_name?.toLowerCase().includes(term)
         );
       }
-
       return true;
     });
 
-    // Sort by Due Date
     result.sort((a, b) => {
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
       const dateA = new Date(a.deadline).getTime();
       const dateB = new Date(b.deadline).getTime();
       return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
@@ -344,48 +233,82 @@ const RegulatoryCompliance = () => {
   return (
     <DashboardLayout
       title="Regulatory Compliance"
-      description="Monitor and review cooperative compliance requirements"
+      description="Monitor and manage legal compliance across all registered cooperatives."
     >
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
 
-        {/* Category Dashboard View */}
-        {view === 'categories' && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle>Overall Compliance Health</CardTitle>
-                <CardDescription>System-wide view of cooperative compliance</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col md:flex-row items-center justify-center gap-8">
-                  <div className="h-64 w-full md:w-1/2">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={overallMetrics}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {overallMetrics.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <RechartsTooltip formatter={(value) => [value, 'Count']} />
-                      </PieChart>
-                    </ResponsiveContainer>
+        {/* --- PREMIUM BANNER --- */}
+        <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-900 via-blue-900 to-indigo-800 text-white shadow-xl p-8 border border-white/10 group">
+          <div className="absolute inset-0 opacity-20 transition-opacity duration-1000 group-hover:opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 70% 30%, #60a5fa 0%, transparent 60%)' }} />
+          <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-blue-500/20 blur-3xl rounded-full mix-blend-screen pointer-events-none" />
+          
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-6">
+              <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-md border border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                <ShieldCheck className="w-10 h-10 text-blue-300" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-200">Compliance Center</h1>
+                <p className="text-blue-200/80 font-medium mt-1">Live tracking of legal and operational regulations.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600/20 border-t-blue-600" />
+          </div>
+        ) : view === 'categories' ? (
+          <div className="space-y-8">
+            {/* Overall Metrics Glass Widget */}
+            <Card className="glass-card shadow-lg border-white/50 overflow-hidden relative group">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-500" />
+              <CardContent className="p-8">
+                <div className="flex flex-col lg:flex-row items-center justify-around gap-12">
+                  <div className="w-full lg:w-1/3 flex flex-col items-center">
+                    <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                      <FileCheck2 className="w-5 h-5 text-indigo-600" /> System Health
+                    </h3>
+                    <div className="h-56 w-full relative">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={overallMetrics}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={70}
+                            outerRadius={90}
+                            paddingAngle={8}
+                            dataKey="value"
+                            stroke="none"
+                            cornerRadius={4}
+                          >
+                            {overallMetrics.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip 
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }}
+                            formatter={(value: number) => [`${value} Cooperatives`]} 
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
+                        <span className="text-3xl font-black text-slate-800">{records.length}</span>
+                        <span className="text-xs font-bold text-slate-400 tracking-wider">TOTAL</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-4 w-full md:w-1/2">
+                  
+                  <div className="w-full lg:w-2/3 grid grid-cols-1 sm:grid-cols-3 gap-6">
                     {overallMetrics.map((metric) => (
-                      <div key={metric.name} className="flex items-center justify-between p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-                        <div className="flex items-center gap-3">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: metric.color }}></div>
-                          <span className="font-semibold">{metric.name}</span>
+                      <div key={metric.name} className="flex flex-col justify-center p-6 border border-slate-100 rounded-2xl bg-white/60 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: metric.color }}></div>
+                          <span className="font-bold text-slate-600 text-sm tracking-wide uppercase">{metric.name}</span>
                         </div>
-                        <span className="text-2xl font-bold" style={{ color: metric.color }}>{metric.value}</span>
+                        <span className="text-4xl font-black" style={{ color: metric.color }}>{metric.value}</span>
                       </div>
                     ))}
                   </div>
@@ -393,79 +316,90 @@ const RegulatoryCompliance = () => {
               </CardContent>
             </Card>
 
-            <h3 className="text-lg font-semibold mt-8 mb-4">Compliance By Category</h3>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {COOPERATIVE_CATEGORIES.map((category) => {
-                const metric = categoryMetrics[category.id] || { compliantCount: 0, pendingCount: 0 };
-                return (
-                  <Card
-                    key={category.id}
-                    className="cursor-pointer hover:shadow-lg transition-transform hover:-translate-y-1 duration-200"
-                    onClick={() => handleCategoryClick(category.id)}
-                  >
-                    <CardHeader>
-                      <CardTitle className="text-lg font-bold">
-                        {category.label}
-                      </CardTitle>
-                      <CardDescription className="line-clamp-2 min-h-[2.5rem]">
-                        {category.description}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Compliance Status:
-                        </h4>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
-                            <CheckCircle className="h-4 w-4" />
-                            <span>{metric.compliantCount} Fully Compliant</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-amber-500 font-medium">
-                            <AlertCircle className="h-4 w-4" />
-                            <span>{metric.pendingCount} Pending Review</span>
-                          </div>
-                        </div>
-                        <div className="pt-2">
-                          <span className="text-xs text-primary flex items-center gap-1 font-semibold group-hover:underline">
-                            View List <ArrowRight className="h-3 w-3" />
-                          </span>
-                        </div>
+            <div>
+              <h3 className="text-xl font-bold mt-2 mb-6 flex items-center gap-2 text-slate-800">
+                <Building2 className="w-6 h-6 text-indigo-600" /> Sector Analysis
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+                {COOPERATIVE_CATEGORIES.map((category) => {
+                  const metric = categoryMetrics[category.id] || { compliantCount: 0, pendingCount: 0 };
+                  const total = metric.compliantCount + metric.pendingCount;
+                  const isZero = total === 0;
+
+                  return (
+                    <Card
+                      key={category.id}
+                      className={`relative overflow-hidden cursor-pointer transition-all duration-300 border border-slate-200 shadow-sm
+                        ${isZero ? 'opacity-70 hover:opacity-100' : 'hover:shadow-xl hover:-translate-y-1 hover:border-indigo-300'}
+                      `}
+                      onClick={() => handleCategoryClick(category.id)}
+                    >
+                      <div className="absolute top-0 right-0 p-4 opacity-5">
+                        <Building2 className="w-24 h-24" />
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                      
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <h4 className="font-bold text-slate-800 leading-tight w-3/4">{category.label}</h4>
+                          <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-bold">{total}</Badge>
+                        </div>
+                        
+                        <p className="text-xs text-slate-500 font-medium line-clamp-2 h-8 mb-6">
+                          {category.description}
+                        </p>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-sm font-semibold">
+                            <span className="flex items-center gap-2 text-emerald-600">
+                              <CheckCircle className="w-4 h-4" /> Compliant
+                            </span>
+                            <span className="text-slate-800">{metric.compliantCount}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm font-semibold">
+                            <span className="flex items-center gap-2 text-amber-600">
+                              <Clock className="w-4 h-4" /> Pending
+                            </span>
+                            <span className="text-slate-800">{metric.pendingCount}</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-6 pt-4 border-t border-slate-100 flex items-center text-xs font-bold text-indigo-600 uppercase tracking-wider group-hover:text-indigo-700">
+                          View Details <ArrowRight className="h-3.5 w-3.5 ml-1 transition-transform group-hover:translate-x-1" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        )}
-
-        {/* Detailed List View */}
-        {view === 'list' && selectedCategory && (
-          <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between gap-4 items-center">
+        ) : (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
+            <div className="flex flex-col md:flex-row justify-between gap-4 items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
               <div className="flex items-center gap-4 w-full md:w-auto">
-                <Button variant="ghost" className="gap-2" onClick={handleBackToCategories}>
+                <Button variant="ghost" className="gap-2 font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100" onClick={handleBackToCategories}>
                   <ArrowLeft className="h-4 w-4" />
-                  Back to Categories
+                  Back
                 </Button>
-                <h2 className="text-xl font-semibold hidden md:block">
-                  {COOPERATIVE_CATEGORIES.find(c => c.id === selectedCategory)?.label} List
+                <div className="h-6 w-px bg-slate-200 hidden md:block" />
+                <h2 className="text-lg font-black text-slate-800 hidden md:flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-indigo-600" />
+                  {COOPERATIVE_CATEGORIES.find(c => c.id === selectedCategory)?.label}
                 </h2>
               </div>
 
               <div className="flex flex-wrap w-full md:w-auto gap-3">
                 <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Search records..."
-                    className="pl-8"
+                    className="pl-9 bg-slate-50 border-slate-200 font-medium"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-[150px]">
+                  <SelectTrigger className="w-full sm:w-[150px] bg-slate-50 border-slate-200 font-medium">
                     <SelectValue placeholder="Status Filter" />
                   </SelectTrigger>
                   <SelectContent>
@@ -476,37 +410,31 @@ const RegulatoryCompliance = () => {
                   </SelectContent>
                 </Select>
                 <Select value={sortOrder} onValueChange={(val: 'asc' | 'desc') => setSortOrder(val)}>
-                  <SelectTrigger className="w-full sm:w-[170px]">
-                    <SelectValue placeholder="Sort by Due Date" />
+                  <SelectTrigger className="w-full sm:w-[170px] bg-slate-50 border-slate-200 font-medium">
+                    <SelectValue placeholder="Sort Date" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="asc">Due Date (Soonest)</SelectItem>
-                    <SelectItem value="desc">Due Date (Latest)</SelectItem>
+                    <SelectItem value="asc">Earliest Deadline</SelectItem>
+                    <SelectItem value="desc">Latest Deadline</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" className="gap-2 w-full sm:w-auto" onClick={handleExportCSV}>
+                <Button className="gap-2 w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white font-bold" onClick={handleExportCSV}>
                   <Download className="h-4 w-4" />
                   Export
                 </Button>
               </div>
             </div>
 
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle>Compliance Records</CardTitle>
-                <CardDescription>
-                  Managing records for {COOPERATIVE_CATEGORIES.find(c => c.id === selectedCategory)?.label}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+            <Card className="glass-card shadow-lg border-white/50 overflow-hidden">
+              <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Cooperative Name</TableHead>
-                      <TableHead>Requirement</TableHead>
-                      <TableHead>Due Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Action</TableHead>
+                  <TableHeader className="bg-slate-50/80 backdrop-blur-sm">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="font-extrabold text-slate-700 py-4 px-6 rounded-tl-xl">Cooperative Name</TableHead>
+                      <TableHead className="font-extrabold text-slate-700">Requirement</TableHead>
+                      <TableHead className="font-extrabold text-slate-700">Due Date</TableHead>
+                      <TableHead className="font-extrabold text-slate-700">Status</TableHead>
+                      <TableHead className="font-extrabold text-slate-700 rounded-tr-xl">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -516,84 +444,53 @@ const RegulatoryCompliance = () => {
                         return (
                           <TableRow
                             key={record.id}
-                            className={
-                              deadlineStatus === 'overdue' ? 'bg-red-50/50 hover:bg-red-50 dark:bg-red-950/20 dark:hover:bg-red-950/30' :
-                                deadlineStatus === 'upcoming' ? 'bg-amber-50/50 hover:bg-amber-50 dark:bg-amber-950/20 dark:hover:bg-amber-950/30' : ''
-                            }
+                            className={`transition-colors border-b border-slate-100 hover:bg-slate-50
+                              ${deadlineStatus === 'overdue' ? 'bg-rose-50/30' : ''}
+                              ${deadlineStatus === 'upcoming' ? 'bg-amber-50/30' : ''}
+                            `}
                           >
-                            <TableCell className="font-medium">{record.cooperative_name}</TableCell>
-                            <TableCell>{record.requirement_name}</TableCell>
+                            <TableCell className="font-bold text-slate-800 px-6 py-4 max-w-[200px] truncate" title={record.cooperative_name}>
+                              {record.cooperative_name}
+                            </TableCell>
+                            <TableCell className="font-medium text-slate-600">
+                              {record.requirement_name}
+                            </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                {new Date(record.deadline).toLocaleDateString()}
-                                {deadlineStatus === 'overdue' && <Badge variant="destructive" className="text-[10px] h-5 px-1 bg-red-500">Overdue</Badge>}
-                                {deadlineStatus === 'upcoming' && <Badge variant="outline" className="text-[10px] h-5 px-1 border-amber-500 text-amber-600 dark:text-amber-400">Due Soon</Badge>}
+                              <div className="flex items-center gap-2 font-semibold text-slate-700">
+                                {record.deadline ? new Date(record.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                                {deadlineStatus === 'overdue' && <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-extrabold text-rose-600 bg-rose-100 px-2 py-0.5 rounded-full"><AlertCircle className="w-3 h-3"/> Overdue</span>}
+                                {deadlineStatus === 'upcoming' && <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-extrabold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full"><Clock className="w-3 h-3"/> Soon</span>}
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge className={getStatusColor(record.status)}>
-                                {record.status}
+                              <Badge variant="outline" className={`capitalize px-3 py-1 font-bold ${getStatusBadgeStyles(record.status)}`}>
+                                {(record.status || '').replace('-', ' ')}
                               </Badge>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <Select
                                   value={record.status}
-                                  onValueChange={async (newStatus) => {
-                                    try {
-                                      const currentUserId = localStorage.getItem('userId');
-                                      if (!currentUserId) {
-                                        toast({ title: "Error", description: "Not logged in.", variant: "destructive" });
-                                        return;
-                                      }
-
-                                      // Update locally first for immediate UI response
-                                      const updatedRecords = records.map(r =>
-                                        r.id === record.id ? { ...r, status: newStatus as any } : r
-                                      );
-                                      setRecords(updatedRecords);
-
-                                      // Save the updated state to localStorage for persistence across hard reloads
-                                      localStorage.setItem('mockComplianceRecords', JSON.stringify(updatedRecords));
-
-                                      // Then attempt server update (will fail for mock IDs, but we catch it)
-                                      try {
-                                        await api.updateComplianceStatus(record.id, {
-                                          status: newStatus,
-                                          reviewed_by: currentUserId,
-                                          submitted_date: new Date().toISOString()
-                                        } as any);
-                                      } catch (apiError) {
-                                        console.warn("API update failed, but local state was updated.", apiError);
-                                      }
-
-                                      toast({
-                                        title: "Status Updated",
-                                        description: `Changed to ${newStatus}`
-                                      });
-                                    } catch (e) {
-                                      toast({ title: "Update Failed", variant: "destructive" });
-                                    }
-                                  }}
+                                  onValueChange={(val) => handleUpdateStatus(record, val)}
                                 >
-                                  <SelectTrigger className="w-[140px] h-8 text-xs">
-                                    <SelectValue placeholder="Update Status" />
+                                  <SelectTrigger className="w-[140px] h-9 text-xs font-bold border-slate-300 focus:ring-indigo-500">
+                                    <SelectValue placeholder="Status" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="pending">Pending</SelectItem>
-                                    <SelectItem value="compliant">Compliant</SelectItem>
-                                    <SelectItem value="non-compliant">Non-Compliant</SelectItem>
+                                    <SelectItem value="pending" className="font-bold text-amber-700">Set Pending</SelectItem>
+                                    <SelectItem value="compliant" className="font-bold text-emerald-700">Set Compliant</SelectItem>
+                                    <SelectItem value="non-compliant" className="font-bold text-rose-700">Set Non-Compliant</SelectItem>
                                   </SelectContent>
                                 </Select>
                                 {record.file_url && (
                                   <Button
                                     variant="outline"
-                                    size="sm"
-                                    className="h-8 text-xs px-2"
+                                    size="icon"
+                                    className="h-9 w-9 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
                                     onClick={() => window.open(record.file_url, '_blank')}
-                                    title="View Document"
+                                    title="View Attached Document"
                                   >
-                                    <ExternalLink className="h-3.5 w-3.5" />
+                                    <ExternalLink className="h-4 w-4" />
                                   </Button>
                                 )}
                               </div>
@@ -603,14 +500,18 @@ const RegulatoryCompliance = () => {
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          No records found matching your search in this category.
+                        <TableCell colSpan={5} className="h-64 text-center">
+                          <div className="flex flex-col items-center justify-center text-slate-400 space-y-3">
+                            <Info className="w-12 h-12 text-slate-300" />
+                            <p className="font-bold text-lg text-slate-500">No matching records found.</p>
+                            <p className="font-medium text-sm">Try adjusting your filters or search terms or change category.</p>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
-              </CardContent>
+              </div>
             </Card>
           </div>
         )}

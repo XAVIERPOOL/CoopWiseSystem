@@ -885,6 +885,73 @@ app.delete('/api/cooperatives/:id', async (req, res) => {
   }
 });
 
+// ===== COMPLIANCE API =====
+
+app.get('/api/compliance', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM compliance_records ORDER BY deadline ASC');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching compliance records:', error);
+    res.status(500).json({ error: 'Failed to fetch compliance records', details: error.message });
+  }
+});
+
+app.patch('/api/compliance/:id/status', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    const { id } = req.params;
+    const { status, reviewer_notes, reviewed_by, submitted_date } = req.body;
+    
+    // Update the record
+    const result = await client.query(
+      `UPDATE compliance_records
+       SET status = COALESCE($1, status),
+           reviewer_notes = COALESCE($2, reviewer_notes),
+           reviewed_by = COALESCE($3, reviewed_by),
+           submitted_date = COALESCE($4, submitted_date),
+           updated_at = NOW()
+       WHERE id = $5
+       RETURNING *`,
+      [status, reviewer_notes, reviewed_by, submitted_date, id]
+    );
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Record not found' });
+    }
+
+    const updatedRecord = result.rows[0];
+
+    // Log the activity if reviewed_by is provided
+    if (reviewed_by) {
+      const userRes = await client.query('SELECT first_name, middle_name, last_name FROM profiles WHERE id = $1', [reviewed_by]);
+      let adminName = 'Unknown Admin';
+      if (userRes.rows.length > 0) {
+        const u = userRes.rows[0];
+        adminName = [u.first_name, u.middle_name, u.last_name].filter(Boolean).join(' ');
+      }
+      
+      await client.query(
+        `INSERT INTO activity_logs (user_id, user_name, action, module, description, target_id)
+         VALUES ($1, $2, 'UPDATE', 'Compliance', $3, $4)`,
+        [reviewed_by, adminName, `Updated compliance status of ${updatedRecord.cooperative_name} to ${status}`, id]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json(updatedRecord);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error updating compliance status:', error);
+    res.status(500).json({ error: 'Failed to update compliance status' });
+  } finally {
+    client.release();
+  }
+});
+
 // ===== MEMBERS API =====
 
 app.get('/api/members', async (req, res) => {
@@ -1028,147 +1095,7 @@ app.delete('/api/members/:id', async (req, res) => {
   }
 });
 
-// ===== COMPLIANCE RECORDS API =====
-
-app.get('/api/compliance', async (req, res) => {
-  try {
-    const { status, cooperative_id, year } = req.query;
-    // UPDATED QUERY: Now selects "c.type as cooperative_type"
-    let query = `
-      SELECT cr.*, c.name as cooperative_name, c.coop_id, c.type as cooperative_type
-      FROM compliance_records cr
-      LEFT JOIN cooperatives c ON cr.cooperative_id = c.id
-      WHERE 1=1
-    `;
-    let params = [];
-    let paramIndex = 1;
-    
-    if (status) {
-      query += ` AND cr.status = $${paramIndex++}`;
-      params.push(status);
-    }
-    if (cooperative_id) {
-      query += ` AND cr.cooperative_id = $${paramIndex++}`;
-      params.push(cooperative_id);
-    }
-    if (year) {
-      query += ` AND cr.year = $${paramIndex++}`;
-      params.push(year);
-    }
-    
-    query += ' ORDER BY cr.due_date ASC';
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching compliance records:', error);
-    res.status(500).json({ error: 'Failed to fetch compliance records' });
-  }
-});
-
-app.get('/api/compliance/summary', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = 'compliant') as compliant,
-        COUNT(*) FILTER (WHERE status = 'pending') as pending,
-        COUNT(*) FILTER (WHERE status = 'non_compliant') as non_compliant,
-        COUNT(*) FILTER (WHERE status = 'overdue') as overdue,
-        COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('compliant', 'submitted')) as past_due
-      FROM compliance_records
-    `);
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error fetching compliance summary:', error);
-    res.status(500).json({ error: 'Failed to fetch compliance summary' });
-  }
-});
-
-app.get('/api/compliance/cooperative/:cooperative_id', async (req, res) => {
-  try {
-    const { cooperative_id } = req.params;
-    const result = await pool.query(`
-      SELECT cr.*, c.name as cooperative_name
-      FROM compliance_records cr
-      LEFT JOIN cooperatives c ON cr.cooperative_id = c.id
-      WHERE cr.cooperative_id = $1
-      ORDER BY cr.due_date ASC
-    `, [cooperative_id]);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching cooperative compliance:', error);
-    res.status(500).json({ error: 'Failed to fetch cooperative compliance' });
-  }
-});
-
-app.get('/api/compliance/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query(`
-      SELECT cr.*, c.name as cooperative_name
-      FROM compliance_records cr
-      LEFT JOIN cooperatives c ON cr.cooperative_id = c.id
-      WHERE cr.id = $1
-    `, [id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Compliance record not found' });
-    }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error fetching compliance record:', error);
-    res.status(500).json({ error: 'Failed to fetch compliance record' });
-  }
-});
-
-app.post('/api/compliance', async (req, res) => {
-  try {
-    const {
-      cooperative_id, requirement_type, requirement_name, description,
-      due_date, year, documents
-    } = req.body;
-    
-    const result = await pool.query(
-      `INSERT INTO compliance_records (cooperative_id, requirement_type, requirement_name, 
-        description, due_date, year, documents, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
-       RETURNING *`,
-      [cooperative_id, requirement_type, requirement_name, description, due_date,
-       year || new Date().getFullYear(), JSON.stringify(documents || [])]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Error creating compliance record:', error);
-    res.status(500).json({ error: 'Failed to create compliance record' });
-  }
-});
-
-app.put('/api/compliance/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      requirement_type, requirement_name, description, due_date, 
-      submitted_date, year, documents
-    } = req.body;
-    
-    const result = await pool.query(
-      `UPDATE compliance_records SET
-        requirement_type = $1, requirement_name = $2, description = $3, due_date = $4,
-        submitted_date = $5, year = $6, documents = $7, updated_at = NOW()
-       WHERE id = $8
-       RETURNING *`,
-      [requirement_type, requirement_name, description, due_date, submitted_date,
-       year, JSON.stringify(documents || []), id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Compliance record not found' });
-    }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error updating compliance record:', error);
-    res.status(500).json({ error: 'Failed to update compliance record' });
-  }
-});
+// (Legacy compliance module removed cleanly)
 
 // ===== ACTIVITY LOGS API =====
 
