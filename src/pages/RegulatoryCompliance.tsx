@@ -846,6 +846,21 @@ const RegulatoryCompliance = () => {
           </div>
         )}
       </div>
+
+      <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col bg-slate-900 border-slate-800">
+          <DialogHeader className="p-4 border-b border-slate-800 bg-slate-900 text-slate-200 flex flex-row items-center justify-between">
+            <DialogTitle className="text-sm font-medium tracking-wide">{previewFile?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto w-full h-full min-h-[70vh] bg-slate-950 flex items-center justify-center p-4">
+            {previewFile?.url.startsWith('data:image/') ? (
+              <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-full object-contain rounded-md shadow-2xl" />
+            ) : previewFile?.url ? (
+              <iframe src={previewFile.url} className="w-full h-full min-h-[70vh] bg-white rounded-md" title={previewFile.name} />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
