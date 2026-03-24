@@ -121,7 +121,7 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    if (userRole === "administrator") {
+    if (userRole !== "officer") {
       fetchSuggestions();
       fetchAdminStats();
       fetchActivities();

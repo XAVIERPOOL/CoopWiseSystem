@@ -380,46 +380,16 @@ class ApiClient {
   }
 
   async createComplianceRecord(record: {
-    cooperative_id: string;
-    requirement_type: string;
+    cooperative_name: string;
+    cooperative_type?: string;
     requirement_name: string;
-    description?: string;
-    due_date?: string;
-    year?: number;
-    documents?: any[];
-    file?: File | null;
+    status?: string;
+    deadline?: string;
+    submitted_date?: string;
+    reviewed_by?: string;
+    file_url?: string;
   }) {
-    // If a file is attached, use FormData (multipart/form-data)
-    if (record.file) {
-      const formData = new FormData();
-      Object.entries(record).forEach(([key, value]) => {
-        if (key === 'file' && value instanceof File) {
-          formData.append(key, value);
-        } else if (key === 'documents' && value) {
-          formData.append(key, JSON.stringify(value));
-        } else if (value !== undefined && value !== null) {
-          formData.append(key, value.toString());
-        }
-      });
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/compliance`, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        return { data, error: null };
-      } catch (error) {
-        return { data: null, error: error as Error };
-      }
-    }
-
-    // Default to JSON if no file
+    // Default to JSON
     return this.request<any>('/compliance', {
       method: 'POST',
       body: JSON.stringify(record),
@@ -433,15 +403,16 @@ class ApiClient {
     });
   }
 
-  async updateComplianceStatus(id: string, data: {
-    status: 'pending' | 'submitted' | 'compliant' | 'non_compliant' | 'overdue';
+  async updateComplianceStatus(id: string, updates: {
+    status: 'compliant' | 'non-compliant' | 'pending';
     reviewer_notes?: string;
     reviewed_by?: string;
     submitted_date?: string;
+    file_url?: string;
   }) {
     return this.request<any>(`/compliance/${id}/status`, {
       method: 'PATCH',
-      body: JSON.stringify(data),
+      body: JSON.stringify(updates),
     });
   }
 

@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import {
   Plus, MapPin, Users, Clock, Edit3, Trash2, Eye, UserPlus, Loader2, ChevronLeft, ChevronRight,
   CheckCircle, Calendar as CalendarIcon, LayoutList, LayoutGrid, TrendingUp, BookOpen,
-  DollarSign, Shield, Star, AlertTriangle, CheckSquare, Mic, CalendarDays, BarChart3, ArrowRight
+  DollarSign, Shield, Star, AlertTriangle, CheckSquare, Mic, CalendarDays, BarChart3, ArrowRight,
+  Building2, ShieldCheck, Calendar
 } from 'lucide-react';
 import {
   format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
@@ -105,10 +106,25 @@ const TrainingManagement = () => {
   const [selectedTrainingTitle, setSelectedTrainingTitle] = useState<string>('');
   const [selectedForBulk, setSelectedForBulk] = useState<string[]>([]);
 
+  const [adminStats, setAdminStats] = useState({
+    totalCooperatives: 0,
+    totalOfficers: 0,
+    compliantOfficers: 0,
+    upcomingEvents: 0,
+  });
+
   useEffect(() => {
     loadTrainings();
     loadOfficers();
+    fetchAdminStats();
   }, []);
+
+  const fetchAdminStats = async () => {
+    try {
+      const { data, error } = await api.getAdminStats();
+      if (!error && data) setAdminStats(data);
+    } catch (error) {}
+  };
 
   const loadTrainings = async () => {
     try {
@@ -312,20 +328,70 @@ const TrainingManagement = () => {
           </div>
 
           <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Upcoming',  value: stats.upcoming,  icon: <CalendarDays className="h-5 w-5 text-amber-500" /> },
-              { label: 'Ongoing',   value: stats.ongoing,   icon: <Clock className="h-5 w-5 text-blue-500" /> },
-              { label: 'Completed', value: stats.completed, icon: <CheckCircle className="h-5 w-5 text-emerald-500" /> },
-              { label: 'Total Enrolled',  value: stats.enrolled,  icon: <Users className="h-5 w-5 text-purple-500" /> },
-            ].map((s, i) => (
-              <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="flex flex-col p-4 rounded-2xl bg-background/50 backdrop-blur-md border border-white/10 dark:border-white/5 shadow-soft hover:shadow-glow transition-all">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-2 rounded-xl bg-muted/50">{s.icon}</div>
-                  <span className="text-3xl font-black tabular-nums">{s.value}</span>
+            <Card className="glass-card overflow-hidden border-none text-foreground relative shadow-lg group">
+              <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full mix-blend-plus-lighter opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+              <div className="absolute -right-4 -top-4 opacity-[0.03] dark:opacity-[0.08] pointer-events-none group-hover:rotate-12 transition-transform duration-700">
+                <Building2 className="h-40 w-40 text-blue-500" />
+              </div>
+              <CardContent className="p-6 relative z-10">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Cooperatives</p>
+                  <p className="text-4xl font-extrabold tracking-tight mt-1 bg-gradient-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent">
+                    {adminStats.totalCooperatives}
+                  </p>
                 </div>
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{s.label}</p>
-              </motion.div>
-            ))}
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card overflow-hidden border-none text-foreground relative shadow-lg group">
+              <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full mix-blend-plus-lighter opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+              <div className="absolute -right-4 -top-4 opacity-[0.03] dark:opacity-[0.08] pointer-events-none group-hover:rotate-12 transition-transform duration-700">
+                <Users className="h-40 w-40 text-indigo-500" />
+              </div>
+              <CardContent className="p-6 relative z-10">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Officers</p>
+                  <p className="text-4xl font-extrabold tracking-tight mt-1 bg-gradient-to-br from-indigo-400 to-indigo-600 bg-clip-text text-transparent">
+                    {adminStats.totalOfficers}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card overflow-hidden border-none text-foreground relative shadow-lg group">
+              <div className="absolute inset-0 bg-emerald-500/20 blur-2xl rounded-full mix-blend-plus-lighter opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+              <div className="absolute -right-4 -top-4 opacity-[0.03] dark:opacity-[0.08] pointer-events-none group-hover:rotate-12 transition-transform duration-700">
+                <ShieldCheck className="h-40 w-40 text-emerald-500" />
+              </div>
+              <CardContent className="p-6 relative z-10">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Compliant Officers</p>
+                  <div className="flex items-end justify-between mt-1">
+                    <p className="text-4xl font-extrabold tracking-tight bg-gradient-to-br from-emerald-400 to-emerald-600 bg-clip-text text-transparent">
+                      {adminStats.compliantOfficers}
+                    </p>
+                    <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-sm font-semibold mb-1">
+                      {adminStats.totalOfficers > 0 ? Math.round((adminStats.compliantOfficers / adminStats.totalOfficers) * 100) : 0}% 
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card overflow-hidden border-none text-foreground relative shadow-lg group">
+              <div className="absolute inset-0 bg-purple-500/20 blur-2xl rounded-full mix-blend-plus-lighter opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+              <div className="absolute -right-4 -top-4 opacity-[0.03] dark:opacity-[0.08] pointer-events-none group-hover:rotate-12 transition-transform duration-700">
+                <Calendar className="h-40 w-40 text-purple-500" />
+              </div>
+              <CardContent className="p-6 relative z-10">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Upcoming Trainings</p>
+                  <p className="text-4xl font-extrabold tracking-tight mt-1 bg-gradient-to-br from-purple-400 to-purple-600 bg-clip-text text-transparent">
+                    {adminStats.upcomingEvents}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </motion.div>
 

@@ -22,7 +22,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
-import { AlertCircle, CheckCircle, Clock, Search, ArrowLeft, ArrowRight, Download, ExternalLink, ShieldCheck, FileCheck2, Info, Building2 } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, Search, ArrowLeft, ArrowRight, Download, ExternalLink, ShieldCheck, FileCheck2, Info, Building2, UploadCloud } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface ComplianceRecord {
   id: string | number;
@@ -51,11 +52,16 @@ const RegulatoryCompliance = () => {
   const [records, setRecords] = useState<ComplianceRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [view, setView] = useState<'categories' | 'list'>('categories');
+  const [view, setView] = useState<'categories' | 'cooperatives' | 'list'>('categories');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCooperative, setSelectedCooperative] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [cooperatives, setCooperatives] = useState<{ id: string; name: string }[]>([]);
+  
+  const [previewFile, setPreviewFile] = useState<{ url: string, name: string } | null>(null);
+
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
@@ -89,26 +95,155 @@ const RegulatoryCompliance = () => {
         return;
       }
 
-      const { data, error } = await api.updateComplianceStatus(record.id.toString(), {
-        status: newStatus as any,
-        reviewed_by: currentUserId,
-        submitted_date: new Date().toISOString()
-      });
+      const isVirtual = typeof record.id === 'string' && record.id.startsWith('missing-');
 
-      if (error) throw error;
+      if (isVirtual) {
+        const coopTypeObj = COOPERATIVE_CATEGORIES.find(c => c.id === selectedCategory);
+        const coopType = coopTypeObj ? coopTypeObj.id : 'Uncategorized';
 
-      // Update locally for immediate UX
-      setRecords(records.map(r => r.id === record.id ? { ...r, status: newStatus as any } : r));
+        const { error } = await api.createComplianceRecord({
+          cooperative_name: record.cooperative_name,
+          cooperative_type: coopType,
+          requirement_name: record.requirement_name,
+          status: newStatus,
+          submitted_date: new Date().toISOString(),
+          reviewed_by: currentUserId
+        });
 
-      toast({
-        title: "Status Updated",
-        description: `${record.cooperative_name} marked as ${newStatus}`
-      });
+        if (error) throw error;
+        
+        // Re-fetch records to get the updated database ID instead of the virtual ID
+        fetchRecords();
+
+        toast({
+          title: "Requirement Updated",
+          description: `${record.cooperative_name}'s ${record.requirement_name} marked as ${newStatus}`
+        });
+      } else {
+        const { error } = await api.updateComplianceStatus(record.id.toString(), {
+          status: newStatus as any,
+          reviewed_by: currentUserId,
+          submitted_date: new Date().toISOString()
+        });
+
+        if (error) throw error;
+
+        // Update locally for immediate UX
+        setRecords(records.map(r => r.id === record.id ? { ...r, status: newStatus as any } : r));
+
+        toast({
+          title: "Status Updated",
+          description: `${record.cooperative_name}'s document marked as ${newStatus}`
+        });
+      }
     } catch (error) {
       console.error("Update failed", error);
       toast({ title: "Update Failed", description: "Network error occurred.", variant: "destructive" });
     }
   };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, record: ComplianceRecord) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please upload a file smaller than 5MB.", variant: "destructive" });
+      return;
+    }
+
+    const currentUserId = localStorage.getItem('userId');
+    if (!currentUserId) {
+      toast({ title: "Error", description: "Not logged in.", variant: "destructive" });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      const isVirtual = typeof record.id === 'string' && record.id.startsWith('missing-');
+
+      try {
+        if (isVirtual) {
+          const coopTypeObj = COOPERATIVE_CATEGORIES.find(c => c.id === selectedCategory);
+          const coopType = coopTypeObj ? coopTypeObj.id : 'Uncategorized';
+
+          const { error } = await api.createComplianceRecord({
+            cooperative_name: record.cooperative_name,
+            cooperative_type: coopType,
+            requirement_name: record.requirement_name,
+            status: 'pending',
+            submitted_date: new Date().toISOString(),
+            reviewed_by: currentUserId,
+            file_url: base64String
+          });
+          if (error) throw error;
+          
+          fetchRecords();
+          toast({ title: "Document Uploaded", description: `Uploaded document for ${record.requirement_name}` });
+        } else {
+          const { error } = await api.updateComplianceStatus(record.id.toString(), {
+            status: record.status as any,
+            reviewed_by: currentUserId,
+            submitted_date: new Date().toISOString(),
+            file_url: base64String
+          });
+          if (error) throw error;
+
+          setRecords(records.map(r => r.id === record.id ? { ...r, file_url: base64String } : r));
+          toast({ title: "Document Uploaded", description: `Updated document for ${record.cooperative_name}` });
+        }
+      } catch (err) {
+        console.error("Upload failed", err);
+        toast({ title: "Upload Failed", description: "Network error occurred.", variant: "destructive" });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+
+  const cooperativeStatuses = useMemo(() => {
+    const groups: Record<string, { type: string, records: ComplianceRecord[] }> = {};
+    records.forEach(r => {
+      const name = r.cooperative_name || 'Unknown Cooperative';
+      if (!groups[name]) groups[name] = { type: r.cooperative_type || 'Uncategorized', records: [] };
+      groups[name].records.push(r);
+    });
+
+    const EXACT_REQUIREMENTS = ['Certificate of Compliance', "Mayor's Permit", 'CAPR'];
+
+    return Object.keys(groups).map(name => {
+      const coop = groups[name];
+      let isCompliant = true;
+      let hasNonCompliant = false;
+
+      const allDisplayRecords = EXACT_REQUIREMENTS.map(reqName => {
+        const found = coop.records.find(r => r.requirement_name.toLowerCase() === reqName.toLowerCase());
+        if (found) return found;
+        return { status: 'pending' };
+      });
+
+      coop.records.forEach(r => {
+        if (!EXACT_REQUIREMENTS.some(req => req.toLowerCase() === (r.requirement_name || '').toLowerCase())) {
+          allDisplayRecords.push(r);
+        }
+      });
+
+      allDisplayRecords.forEach(r => {
+        if (r.status !== 'compliant') isCompliant = false;
+        if (r.status === 'non-compliant' || r.status === 'non_compliant') hasNonCompliant = true;
+      });
+
+      let overallStatus = 'pending';
+      if (isCompliant) overallStatus = 'compliant';
+      else if (hasNonCompliant) overallStatus = 'non-compliant';
+
+      return {
+        name,
+        type: coop.type,
+        status: overallStatus
+      };
+    });
+  }, [records]);
 
   const categoryMetrics = useMemo(() => {
     const metrics: Record<string, { compliantCount: number; pendingCount: number }> = {};
@@ -116,46 +251,54 @@ const RegulatoryCompliance = () => {
       metrics[cat.id] = { compliantCount: 0, pendingCount: 0 };
     });
 
-    records.forEach(record => {
-      const typeStr = record.cooperative_type || 'Uncategorized';
+    cooperativeStatuses.forEach(coop => {
       let matchedCategory = COOPERATIVE_CATEGORIES.find(
-        cat => cat.id.toLowerCase() === typeStr.toLowerCase().trim()
+        cat => cat.id.toLowerCase() === coop.type.toLowerCase().trim()
       )?.id || 'Uncategorized';
 
       if (metrics[matchedCategory]) {
-        if (record.status === 'compliant') metrics[matchedCategory].compliantCount++;
-        else if (record.status === 'pending') metrics[matchedCategory].pendingCount++;
+        if (coop.status === 'compliant') metrics[matchedCategory].compliantCount++;
+        else metrics[matchedCategory].pendingCount++;
       }
     });
 
     return metrics;
-  }, [records]);
+  }, [cooperativeStatuses]);
 
   const handleCategoryClick = (category: string) => {
     setSelectedCategory(category);
-    setView('list');
+    setView('cooperatives');
     setSearchTerm('');
     setStatusFilter('all');
+    setSelectedCooperative(null);
   };
 
   const handleBackToCategories = () => {
     setSelectedCategory(null);
     setView('categories');
+    setSelectedCooperative(null);
+  };
+
+  const handleBackToCooperatives = () => {
+    setView('cooperatives');
+    setSelectedCooperative(null);
+    setSearchTerm('');
+    setStatusFilter('all');
   };
 
   const overallMetrics = useMemo(() => {
     let compliant = 0, pending = 0, nonCompliant = 0;
-    records.forEach(r => {
-      if (r.status === 'compliant') compliant++;
-      else if (r.status === 'pending') pending++;
-      else if (r.status === 'non-compliant' || r.status === 'non_compliant') nonCompliant++;
+    cooperativeStatuses.forEach(c => {
+      if (c.status === 'compliant') compliant++;
+      else if (c.status === 'pending') pending++;
+      else nonCompliant++;
     });
     return [
       { name: 'Compliant', value: compliant, color: '#10b981' }, // Emerald
       { name: 'Pending Review', value: pending, color: '#f59e0b' }, // Amber
       { name: 'Non-Compliant', value: nonCompliant, color: '#f43f5e' } // Rose
     ];
-  }, [records]);
+  }, [cooperativeStatuses]);
 
   const handleExportCSV = () => {
     const headers = ['Cooperative Name', 'Requirement', 'Status', 'Submitted Date', 'Deadline', 'Reviewer Notes'];
@@ -208,6 +351,9 @@ const RegulatoryCompliance = () => {
       if (!selectedCategory) return false;
       const typeStr = record.cooperative_type || 'Uncategorized';
       if (typeStr.toLowerCase().trim() !== selectedCategory.toLowerCase().trim()) return false;
+      
+      if (selectedCooperative && view === 'list' && record.cooperative_name !== selectedCooperative) return false;
+      
       if (statusFilter !== 'all' && record.status !== statusFilter) return false;
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
@@ -228,7 +374,92 @@ const RegulatoryCompliance = () => {
     });
 
     return result;
-  }, [records, selectedCategory, statusFilter, searchTerm, sortOrder]);
+  }, [records, selectedCategory, statusFilter, searchTerm, sortOrder, selectedCooperative, view]);
+
+  const groupedCooperatives = useMemo(() => {
+    if (view !== 'cooperatives') return [];
+    
+    const recordsByCoop: Record<string, ComplianceRecord[]> = {};
+    filteredRecords.forEach(r => {
+      const name = r.cooperative_name || 'Unknown Cooperative';
+      if (!recordsByCoop[name]) recordsByCoop[name] = [];
+      recordsByCoop[name].push(r);
+    });
+
+    const EXACT_REQUIREMENTS = ['Certificate of Compliance', "Mayor's Permit", 'CAPR'];
+
+    return Object.keys(recordsByCoop).map(name => {
+      const coopRecords = recordsByCoop[name];
+      let compliantCount = 0;
+      let pendingCount = 0;
+      let nonCompliantCount = 0;
+      let lastSubmission: string | null = null;
+      
+      const allDisplayRecords = EXACT_REQUIREMENTS.map(reqName => {
+        const found = coopRecords.find(r => r.requirement_name.toLowerCase() === reqName.toLowerCase());
+        if (found) return found;
+        return {
+          status: 'pending',
+          submitted_date: null
+        } as unknown as ComplianceRecord;
+      });
+
+      coopRecords.forEach(r => {
+        if (!EXACT_REQUIREMENTS.some(req => req.toLowerCase() === (r.requirement_name || '').toLowerCase())) {
+          allDisplayRecords.push(r);
+        }
+      });
+
+      allDisplayRecords.forEach(r => {
+        if (r.status === 'compliant') compliantCount++;
+        else if (r.status === 'pending') pendingCount++;
+        else nonCompliantCount++;
+
+        if (r.submitted_date) {
+            if (!lastSubmission || new Date(r.submitted_date) > new Date(lastSubmission)) {
+                lastSubmission = r.submitted_date;
+            }
+        }
+      });
+
+      return {
+        name,
+        total: allDisplayRecords.length,
+        compliant: compliantCount,
+        pending: pendingCount,
+        nonCompliant: nonCompliantCount,
+        lastSubmission
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [filteredRecords, view]);
+
+  const cooperativeDisplayRecords = useMemo(() => {
+    if (view !== 'list' || !selectedCooperative) return [];
+    
+    const EXACT_REQUIREMENTS = ['Certificate of Compliance', "Mayor's Permit", 'CAPR'];
+    
+    const result = EXACT_REQUIREMENTS.map(reqName => {
+      const found = filteredRecords.find(r => r.requirement_name.toLowerCase() === reqName.toLowerCase());
+      if (found) return found;
+      return {
+        id: `missing-${reqName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`,
+        cooperative_name: selectedCooperative,
+        requirement_name: reqName,
+        status: 'pending',
+        deadline: '',
+      } as ComplianceRecord;
+    });
+
+    filteredRecords.forEach(r => {
+      if (!EXACT_REQUIREMENTS.some(req => 
+        req.toLowerCase() === (r.requirement_name || '').toLowerCase()
+      )) {
+        result.push(r);
+      }
+    });
+
+    return result;
+  }, [filteredRecords, selectedCooperative, view]);
 
   return (
     <DashboardLayout
@@ -295,7 +526,7 @@ const RegulatoryCompliance = () => {
                         </PieChart>
                       </ResponsiveContainer>
                       <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                        <span className="text-3xl font-black text-slate-800">{records.length}</span>
+                        <span className="text-3xl font-black text-slate-800">{cooperativeStatuses.length}</span>
                         <span className="text-xs font-bold text-slate-400 tracking-wider">TOTAL</span>
                       </div>
                     </div>
@@ -373,18 +604,111 @@ const RegulatoryCompliance = () => {
               </div>
             </div>
           </div>
-        ) : (
+        ) : view === 'cooperatives' ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
             <div className="flex flex-col md:flex-row justify-between gap-4 items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
               <div className="flex items-center gap-4 w-full md:w-auto">
-                <Button variant="ghost" className="gap-2 font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100" onClick={handleBackToCategories}>
+                <Button variant="ghost" className="gap-2 font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 shrink-0" onClick={handleBackToCategories}>
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Categories
+                </Button>
+                <div className="h-6 w-px bg-slate-200 hidden md:block shrink-0" />
+                <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 truncate">
+                  <Building2 className="w-5 h-5 text-indigo-600 shrink-0" />
+                  <span className="truncate">{COOPERATIVE_CATEGORIES.find(c => c.id === selectedCategory)?.label}</span>
+                </h2>
+              </div>
+
+              <div className="flex flex-wrap w-full md:w-auto gap-3">
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search cooperatives..."
+                    className="pl-9 bg-slate-50 border-slate-200 font-medium"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-[150px] bg-slate-50 border-slate-200 font-medium">
+                    <SelectValue placeholder="Status Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="compliant">Compliant</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="non-compliant">Non-Compliant</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {groupedCooperatives.map(coop => (
+                <Card key={coop.name} className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-200 group relative overflow-hidden bg-white/60 backdrop-blur-sm">
+                  <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:scale-110 transition-transform duration-500 pointer-events-none">
+                    <Building2 className="w-32 h-32" />
+                  </div>
+                  <CardContent className="p-6 relative z-10 flex flex-col h-full">
+                    <div className="flex items-start justify-between mb-4">
+                      <h4 className="font-extrabold text-lg text-slate-800 line-clamp-2">{coop.name}</h4>
+                    </div>
+                    
+                    <div className="space-y-4 mt-auto mb-6">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="font-semibold text-slate-500">Total Requirements</span>
+                        <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-full">{coop.total} documents</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2 flex overflow-hidden shadow-inner">
+                        <div style={{ width: `${(coop.compliant / coop.total) * 100}%` }} className="bg-emerald-500 h-full" />
+                        <div style={{ width: `${(coop.pending / coop.total) * 100}%` }} className="bg-amber-500 h-full" />
+                        <div style={{ width: `${(coop.nonCompliant / coop.total) * 100}%` }} className="bg-rose-500 h-full" />
+                      </div>
+                      <div className="flex justify-between items-center text-xs font-bold pt-1">
+                        <span className="text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-md"><CheckCircle className="w-3.5 h-3.5"/> {coop.compliant}</span>
+                        <span className="text-amber-600 flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-md"><Clock className="w-3.5 h-3.5"/> {coop.pending}</span>
+                        <span className="text-rose-600 flex items-center gap-1 bg-rose-50 px-2 py-1 rounded-md"><AlertCircle className="w-3.5 h-3.5"/> {coop.nonCompliant}</span>
+                      </div>
+                    </div>
+
+                    <Button 
+                      className="w-full mt-auto bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 hover:border-indigo-300 shadow-sm transition-all group-hover:bg-indigo-600 group-hover:text-white"
+                      size="lg"
+                      onClick={() => {
+                        setSelectedCooperative(coop.name);
+                        setView('list');
+                        setSearchTerm('');
+                        setStatusFilter('all');
+                      }}
+                    >
+                      View Documents <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+              {groupedCooperatives.length === 0 && (
+                <div className="col-span-full py-16 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-3">
+                    <Info className="w-12 h-12 text-slate-300" />
+                    <p className="font-bold text-lg text-slate-500">No cooperatives found.</p>
+                    <p className="font-medium text-sm text-slate-400">Try adjusting your filters or search terms.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
+            <div className="flex flex-col md:flex-row justify-between gap-4 items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <div className="flex items-center gap-4 w-full md:w-auto overflow-hidden">
+                <Button variant="ghost" className="gap-2 font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 shrink-0" onClick={handleBackToCooperatives}>
                   <ArrowLeft className="h-4 w-4" />
                   Back
                 </Button>
-                <div className="h-6 w-px bg-slate-200 hidden md:block" />
-                <h2 className="text-lg font-black text-slate-800 hidden md:flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-indigo-600" />
-                  {COOPERATIVE_CATEGORIES.find(c => c.id === selectedCategory)?.label}
+                <div className="h-6 w-px bg-slate-200 hidden md:block shrink-0" />
+                <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 truncate" title={selectedCooperative || ''}>
+                  <FileCheck2 className="w-5 h-5 text-indigo-600 shrink-0" />
+                  <span className="truncate">{selectedCooperative} Documents</span>
                 </h2>
               </div>
 
@@ -430,16 +754,15 @@ const RegulatoryCompliance = () => {
                 <Table>
                   <TableHeader className="bg-slate-50/80 backdrop-blur-sm">
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="font-extrabold text-slate-700 py-4 px-6 rounded-tl-xl">Cooperative Name</TableHead>
-                      <TableHead className="font-extrabold text-slate-700">Requirement</TableHead>
+                      <TableHead className="font-extrabold text-slate-700 py-4 px-6 rounded-tl-xl text-left">Requirement</TableHead>
                       <TableHead className="font-extrabold text-slate-700">Due Date</TableHead>
                       <TableHead className="font-extrabold text-slate-700">Status</TableHead>
-                      <TableHead className="font-extrabold text-slate-700 rounded-tr-xl">Action</TableHead>
+                      <TableHead className="font-extrabold text-slate-700 rounded-tr-xl w-[200px]">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRecords.length > 0 ? (
-                      filteredRecords.map((record) => {
+                    {cooperativeDisplayRecords.length > 0 ? (
+                      cooperativeDisplayRecords.map((record) => {
                         const deadlineStatus = getDeadlineStatus(record.deadline, record.status);
                         return (
                           <TableRow
@@ -449,10 +772,7 @@ const RegulatoryCompliance = () => {
                               ${deadlineStatus === 'upcoming' ? 'bg-amber-50/30' : ''}
                             `}
                           >
-                            <TableCell className="font-bold text-slate-800 px-6 py-4 max-w-[200px] truncate" title={record.cooperative_name}>
-                              {record.cooperative_name}
-                            </TableCell>
-                            <TableCell className="font-medium text-slate-600">
+                            <TableCell className="font-bold text-slate-800 px-6 py-4 text-left">
                               {record.requirement_name}
                             </TableCell>
                             <TableCell>
@@ -482,16 +802,26 @@ const RegulatoryCompliance = () => {
                                     <SelectItem value="non-compliant" className="font-bold text-rose-700">Set Non-Compliant</SelectItem>
                                   </SelectContent>
                                 </Select>
-                                {record.file_url && (
+                                {record.file_url ? (
                                   <Button
                                     variant="outline"
                                     size="icon"
                                     className="h-9 w-9 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                                    onClick={() => window.open(record.file_url, '_blank')}
+                                    onClick={() => setPreviewFile({ url: record.file_url || '', name: record.requirement_name || 'Document' })}
                                     title="View Attached Document"
                                   >
                                     <ExternalLink className="h-4 w-4" />
                                   </Button>
+                                ) : (
+                                  <label className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input hover:bg-slate-100 hover:text-slate-900 bg-white h-9 w-9 text-slate-500 shadow-sm" title="Upload Document">
+                                    <input 
+                                      type="file" 
+                                      className="hidden" 
+                                      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                                      onChange={(e) => handleFileUpload(e, record)} 
+                                    />
+                                    <UploadCloud className="h-4 w-4" />
+                                  </label>
                                 )}
                               </div>
                             </TableCell>
@@ -500,7 +830,7 @@ const RegulatoryCompliance = () => {
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-64 text-center">
+                        <TableCell colSpan={4} className="h-64 text-center">
                           <div className="flex flex-col items-center justify-center text-slate-400 space-y-3">
                             <Info className="w-12 h-12 text-slate-300" />
                             <p className="font-bold text-lg text-slate-500">No matching records found.</p>

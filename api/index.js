@@ -728,8 +728,8 @@ app.patch('/api/cooperatives/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status, review_notes, reviewed_by } = req.body;
     
-    // 1. Get old status
-    const oldRes = await client.query('SELECT name, status FROM cooperatives WHERE id = $1', [id]);
+    // 1. Get old status and documents
+    const oldRes = await client.query('SELECT name, type, status, submitted_documents FROM cooperatives WHERE id = $1', [id]);
     if (oldRes.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Cooperative not found' });
@@ -745,6 +745,51 @@ app.patch('/api/cooperatives/:id/status', async (req, res) => {
        RETURNING *`,
       [status, review_notes, reviewed_by, id]
     );
+
+    // 2.5. Insert Auto-Compliance Records upon strictly Approval
+    if (status === 'approved' && oldCoop.status !== 'approved') {
+      let docs = [];
+      if (typeof oldCoop.submitted_documents === 'string') {
+        try { docs = JSON.parse(oldCoop.submitted_documents); } catch(e){}
+      } else {
+        docs = oldCoop.submitted_documents || [];
+      }
+      
+      const rawType = (oldCoop.type || '').toLowerCase();
+      let normalizedType = 'Uncategorized';
+      if (rawType.includes('agri')) normalizedType = 'Agriculture';
+      else if (rawType.includes('consum')) normalizedType = 'Consumers';
+      else if (rawType.includes('credit')) normalizedType = 'Credit';
+      else if (rawType.includes('federation')) normalizedType = 'Federation';
+      else if (rawType.includes('health')) normalizedType = 'Health Service';
+      else if (rawType.includes('labor')) normalizedType = 'Labor Service';
+      else if (rawType.includes('multi')) normalizedType = 'Multipurpose';
+      else if (rawType.includes('transport')) normalizedType = 'Transport';
+
+      const getBase64 = (type) => docs.find(d => d.type === type)?.data_url || null;
+
+      const recordsToCreate = [
+        { reqName: 'Certificate of Compliance', file: getBase64('cda_certificate') },
+        { reqName: "Mayor's Permit", file: getBase64('mayors_permit') },
+        { reqName: 'CAPR', file: getBase64('capr') }
+      ];
+
+      for (const rec of recordsToCreate) {
+        if (rec.file) {
+          const existRes = await client.query(
+             'SELECT id FROM compliance_records WHERE cooperative_name = $1 AND requirement_name = $2',
+             [oldCoop.name, rec.reqName]
+          );
+          if (existRes.rows.length === 0) {
+            await client.query(
+              `INSERT INTO compliance_records (cooperative_name, cooperative_type, requirement_name, status, submitted_date, reviewed_by, file_url)
+               VALUES ($1, $2, $3, $4, NOW(), $5, $6)`,
+              [oldCoop.name, normalizedType, rec.reqName, 'compliant', reviewed_by, rec.file]
+            );
+          }
+        }
+      }
+    }
 
     // 3. LOG THE ACTIVITY
     if (reviewed_by) {
@@ -897,25 +942,68 @@ app.get('/api/compliance', async (req, res) => {
   }
 });
 
+app.post('/api/compliance', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { cooperative_name, cooperative_type, requirement_name, status, deadline, submitted_date, reviewed_by, file_url } = req.body;
+    
+    // Check if modifying file_url with base64 string
+    const result = await client.query(
+      `/* bust PgBouncer cache 2 */ INSERT INTO compliance_records (cooperative_name, cooperative_type, requirement_name, status, deadline, submitted_date, reviewed_by, file_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [cooperative_name, cooperative_type || 'Uncategorized', requirement_name, status || 'pending', deadline || null, submitted_date || null, reviewed_by || null, file_url || null]
+    );
+
+    const newRecord = result.rows[0];
+
+    if (reviewed_by) {
+      const userRes = await client.query('SELECT first_name, middle_name, last_name FROM profiles WHERE id = $1', [reviewed_by]);
+      let adminName = 'Unknown Admin';
+      if (userRes.rows.length > 0) {
+        const u = userRes.rows[0];
+        adminName = [u.first_name, u.middle_name, u.last_name].filter(Boolean).join(' ');
+      }
+      
+      await client.query(
+        `INSERT INTO activity_logs (user_id, user_name, action, module, description, target_id)
+         VALUES ($1, $2, 'CREATE', 'Compliance', $3, $4)`,
+        [reviewed_by, adminName, `Created compliance record of ${newRecord.cooperative_name} to ${status}`, newRecord.id]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json(newRecord);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating compliance record:', error);
+    res.status(500).json({ error: 'Failed to create compliance record' });
+  } finally {
+    client.release();
+  }
+});
+
 app.patch('/api/compliance/:id/status', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     
     const { id } = req.params;
-    const { status, reviewer_notes, reviewed_by, submitted_date } = req.body;
+    const { status, reviewer_notes, reviewed_by, submitted_date, file_url } = req.body;
     
     // Update the record
     const result = await client.query(
-      `UPDATE compliance_records
+      `/* bust PgBouncer cache 2 */ UPDATE compliance_records
        SET status = COALESCE($1, status),
            reviewer_notes = COALESCE($2, reviewer_notes),
            reviewed_by = COALESCE($3, reviewed_by),
            submitted_date = COALESCE($4, submitted_date),
+           file_url = COALESCE($5, file_url),
            updated_at = NOW()
-       WHERE id = $5
+       WHERE id = $6
        RETURNING *`,
-      [status, reviewer_notes, reviewed_by, submitted_date, id]
+      [status, reviewer_notes, reviewed_by, submitted_date, file_url, id]
     );
 
     if (result.rows.length === 0) {

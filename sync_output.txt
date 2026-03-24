@@ -1,0 +1,61 @@
+=== Recent Cooperatives ===
+[
+  {
+    "id": "e7d8b3d7-7b9f-4c3c-b965-f52c7e97a047",
+    "name": "Testing",
+    "type": "Transport Cooperative",
+    "status": "approved",
+    "created_at": "2026-03-24T02:31:15.060Z"
+  },
+  {
+    "id": "621b2263-dded-4ee0-ac6a-cd0544703bbb",
+    "name": "coop",
+    "type": "Consumer Cooperative",
+    "status": "approved",
+    "created_at": "2026-03-17T15:48:01.238Z"
+  }
+]
+
+=== Recent Compliance Records ===
+[
+  {
+    "id": 52,
+    "cooperative_name": "GOLDEN BLUE CONSUMERS COOPERATIVE",
+    "cooperative_type": "Consumers",
+    "requirement_name": "CAPR",
+    "status": "compliant",
+    "submitted_date": "2026-03-23T18:01:16.799Z"
+  },
+  {
+    "id": 51,
+    "cooperative_name": "GOLDEN BLUE CONSUMERS COOPERATIVE",
+    "cooperative_type": "Consumers",
+    "requirement_name": "Mayor's Permit",
+    "status": "compliant",
+    "submitted_date": "2026-03-23T18:01:10.468Z"
+  },
+  {
+    "id": 50,
+    "cooperative_name": "TRADE CREDIT COOPERATIVE (TCC)",
+    "cooperative_type": "Credit",
+    "requirement_name": "CAPR",
+    "status": "compliant",
+    "submitted_date": "2026-03-23T17:37:39.543Z"
+  },
+  {
+    "id": 49,
+    "cooperative_name": "TRADE CREDIT COOPERATIVE (TCC)",
+    "cooperative_type": "Credit",
+    "requirement_name": "Mayor's Permit",
+    "status": "compliant",
+    "submitted_date": "2026-03-23T17:37:30.861Z"
+  },
+  {
+    "id": 48,
+    "cooperative_name": "CAMARINES SUR MUSLIM COMMUNITY CONSUMERS COOPERATIVE",
+    "cooperative_type": "Consumers",
+    "requirement_name": "CAPR",
+    "status": "compliant",
+    "submitted_date": "2026-03-23T17:33:36.783Z"
+  }
+]

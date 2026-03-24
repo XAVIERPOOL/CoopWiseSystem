@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { api } from '@/lib/api';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +16,11 @@ import {
   Mail,
   Calendar,
   FileText,
-  Edit
+  Edit,
+  Building2,
+  Users,
+  ShieldCheck,
+  TrendingUp
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import EditOfficerDialog from '@/components/EditOfficerDialog';
@@ -38,6 +44,23 @@ const ComplianceTracker = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null);
+
+  const [adminStats, setAdminStats] = useState({
+    totalCooperatives: 0,
+    totalOfficers: 0,
+    compliantOfficers: 0,
+    upcomingEvents: 0,
+  });
+
+  useEffect(() => {
+    const fetchAdminStats = async () => {
+      try {
+        const { data, error } = await api.getAdminStats();
+        if (!error && data) setAdminStats(data);
+      } catch (error) {}
+    };
+    fetchAdminStats();
+  }, []);
 
   const [officers, setOfficers] = useState<Officer[]>([
     {
@@ -249,32 +272,72 @@ const ComplianceTracker = () => {
   return (
     <DashboardLayout title="Officer Compliance Tracker" description="Monitor and manage officer training compliance">
       <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-gray-900">{complianceStats.total}</div>
-              <p className="text-sm text-gray-600">Total Officers</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-green-600">{complianceStats.compliant}</div>
-              <p className="text-sm text-gray-600">Fully Compliant</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-yellow-600">{complianceStats.partial}</div>
-              <p className="text-sm text-gray-600">Partially Compliant</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-red-600">{complianceStats.nonCompliant}</div>
-              <p className="text-sm text-gray-600">Non-Compliant</p>
-            </CardContent>
-          </Card>
-        </div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+            <Card className="glass-card overflow-hidden border-none text-foreground relative shadow-lg group">
+              <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full mix-blend-plus-lighter opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+              <div className="absolute -right-4 -top-4 opacity-[0.03] dark:opacity-[0.08] pointer-events-none group-hover:rotate-12 transition-transform duration-700">
+                <Building2 className="h-40 w-40 text-blue-500" />
+              </div>
+              <CardContent className="p-6 relative z-10">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Cooperatives</p>
+                  <p className="text-4xl font-extrabold tracking-tight mt-1 bg-gradient-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent">
+                    {adminStats.totalCooperatives}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card overflow-hidden border-none text-foreground relative shadow-lg group">
+              <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full mix-blend-plus-lighter opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+              <div className="absolute -right-4 -top-4 opacity-[0.03] dark:opacity-[0.08] pointer-events-none group-hover:rotate-12 transition-transform duration-700">
+                <Users className="h-40 w-40 text-indigo-500" />
+              </div>
+              <CardContent className="p-6 relative z-10">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Officers</p>
+                  <p className="text-4xl font-extrabold tracking-tight mt-1 bg-gradient-to-br from-indigo-400 to-indigo-600 bg-clip-text text-transparent">
+                    {adminStats.totalOfficers}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card overflow-hidden border-none text-foreground relative shadow-lg group">
+              <div className="absolute inset-0 bg-emerald-500/20 blur-2xl rounded-full mix-blend-plus-lighter opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+              <div className="absolute -right-4 -top-4 opacity-[0.03] dark:opacity-[0.08] pointer-events-none group-hover:rotate-12 transition-transform duration-700">
+                <ShieldCheck className="h-40 w-40 text-emerald-500" />
+              </div>
+              <CardContent className="p-6 relative z-10">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Compliant Officers</p>
+                  <div className="flex items-end justify-between mt-1">
+                    <p className="text-4xl font-extrabold tracking-tight bg-gradient-to-br from-emerald-400 to-emerald-600 bg-clip-text text-transparent">
+                      {adminStats.compliantOfficers}
+                    </p>
+                    <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-sm font-semibold mb-1">
+                      {adminStats.totalOfficers > 0 ? Math.round((adminStats.compliantOfficers / adminStats.totalOfficers) * 100) : 0}% 
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card overflow-hidden border-none text-foreground relative shadow-lg group">
+              <div className="absolute inset-0 bg-purple-500/20 blur-2xl rounded-full mix-blend-plus-lighter opacity-50 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+              <div className="absolute -right-4 -top-4 opacity-[0.03] dark:opacity-[0.08] pointer-events-none group-hover:rotate-12 transition-transform duration-700">
+                <Calendar className="h-40 w-40 text-purple-500" />
+              </div>
+              <CardContent className="p-6 relative z-10">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Upcoming Trainings</p>
+                  <p className="text-4xl font-extrabold tracking-tight mt-1 bg-gradient-to-br from-purple-400 to-purple-600 bg-clip-text text-transparent">
+                    {adminStats.upcomingEvents}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+        </motion.div>
 
         <Card className="mb-6">
           <CardContent className="p-6">

@@ -136,6 +136,8 @@ const CooperativeRegistration = () => {
     cda_certificate: null as File | null,
     articles_of_cooperation: null as File | null,
     valid_id: null as File | null,
+    mayors_permit: null as File | null,
+    capr: null as File | null,
   });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
@@ -216,6 +218,8 @@ const CooperativeRegistration = () => {
         { key: 'cda_certificate',       label: 'CDA Certificate',        file: documents.cda_certificate },
         { key: 'articles_of_cooperation', label: 'Articles of Cooperation', file: documents.articles_of_cooperation },
         { key: 'valid_id',              label: 'Valid ID',                file: documents.valid_id },
+        { key: 'mayors_permit',         label: 'Mayor\'s Permit',         file: documents.mayors_permit },
+        { key: 'capr',                  label: 'CAPR',                    file: documents.capr },
       ];
 
       const submittedDocuments = await Promise.all(
@@ -332,6 +336,8 @@ const CooperativeRegistration = () => {
       cda_certificate: null,
       articles_of_cooperation: null,
       valid_id: null,
+      mayors_permit: null,
+      capr: null,
     });
     setCurrentStep(1);
     setStepErrors({});
@@ -864,6 +870,66 @@ const CooperativeRegistration = () => {
                          <FileText className="w-3.5 h-3.5 text-green-500/80" />
                          <span className="truncate max-w-[150px] md:max-w-[200px]">{documents.valid_id.name}</span>
                          <button type="button" onClick={() => removeFile('valid_id')} className="outline-none focus:outline-none ml-1">
+                           <X className="w-3.5 h-3.5 text-red-500/80 hover:text-red-600 transition-colors" />
+                         </button>
+                       </div>
+                     )}
+                   </div>
+                </div>
+
+                <div className="border border-gray-200/60 shadow-sm rounded-xl p-4 bg-white transition-all hover:border-gray-300">
+                   <div className="mb-3">
+                     <h4 className="font-bold text-gray-900 text-[13px] tracking-wide">4. Mayor's Permit <span className="text-red-500">*</span></h4>
+                     <p className="text-xs text-gray-500 mt-1 font-medium">Clear scanned copy of your organization's recent Mayor's Permit or Business Permit.</p>
+                   </div>
+                   <div className="flex flex-wrap items-center gap-3">
+                     <div className="relative">
+                       <input 
+                         type="file" 
+                         id="doc-mayor" 
+                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                         onChange={(e) => handleFileChange(e, 'mayors_permit')}
+                         accept=".pdf,.jpg,.jpeg,.png"
+                       />
+                       <Button variant="outline" size="sm" type="button" className="bg-white h-8 text-xs font-semibold px-4 rounded-lg border-gray-300 shadow-sm pointer-events-none">
+                         {documents.mayors_permit ? 'Change File' : 'Upload File'}
+                       </Button>
+                     </div>
+                     {documents.mayors_permit && (
+                       <div className="flex items-center gap-2 text-xs font-medium text-gray-600 bg-gray-50/80 px-3 pr-2 py-1.5 rounded-lg border border-gray-200 animate-in fade-in zoom-in duration-200">
+                         <FileText className="w-3.5 h-3.5 text-blue-500/80" />
+                         <span className="truncate max-w-[150px] md:max-w-[200px]">{documents.mayors_permit.name}</span>
+                         <button type="button" onClick={() => removeFile('mayors_permit')} className="outline-none focus:outline-none ml-1">
+                           <X className="w-3.5 h-3.5 text-red-500/80 hover:text-red-600 transition-colors" />
+                         </button>
+                       </div>
+                     )}
+                   </div>
+                </div>
+
+                <div className="border border-gray-200/60 shadow-sm rounded-xl p-4 bg-white transition-all hover:border-gray-300">
+                   <div className="mb-3">
+                     <h4 className="font-bold text-gray-900 text-[13px] tracking-wide">5. CAPR (Cooperative Annual Progress Report) <span className="text-red-500">*</span></h4>
+                     <p className="text-xs text-gray-500 mt-1 font-medium">Annual report documentation verifying institutional compliance standing.</p>
+                   </div>
+                   <div className="flex flex-wrap items-center gap-3">
+                     <div className="relative">
+                       <input 
+                         type="file" 
+                         id="doc-capr" 
+                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                         onChange={(e) => handleFileChange(e, 'capr')}
+                         accept=".pdf,.doc,.docx"
+                       />
+                       <Button variant="outline" size="sm" type="button" className="bg-white h-8 text-xs font-semibold px-4 rounded-lg border-gray-300 shadow-sm pointer-events-none">
+                         {documents.capr ? 'Change File' : 'Upload File'}
+                       </Button>
+                     </div>
+                     {documents.capr && (
+                       <div className="flex items-center gap-2 text-xs font-medium text-gray-600 bg-gray-50/80 px-3 pr-2 py-1.5 rounded-lg border border-gray-200 animate-in fade-in zoom-in duration-200">
+                         <FileText className="w-3.5 h-3.5 text-orange-500/80" />
+                         <span className="truncate max-w-[150px] md:max-w-[200px]">{documents.capr.name}</span>
+                         <button type="button" onClick={() => removeFile('capr')} className="outline-none focus:outline-none ml-1">
                            <X className="w-3.5 h-3.5 text-red-500/80 hover:text-red-600 transition-colors" />
                          </button>
                        </div>
