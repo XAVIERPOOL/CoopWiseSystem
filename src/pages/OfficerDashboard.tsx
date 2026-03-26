@@ -74,26 +74,31 @@ const OfficerDashboard = () => {
         const userName = localStorage.getItem('userName') || '';
         const userEmail = userName ? `${userName}@coopwise.com` : 'officer@coopwise.com';
 
-        // 1. Fetch Member Profile
-        const membersRes = await api.getMembers();
-        let matchedMember = null;
-        if (membersRes.data) {
-          // In a real app, you'd match by user ID. For now, we try to match by email or just take a default officer role
-          matchedMember = membersRes.data.find((m: any) => m.email === userEmail || m.email === 'maria.rodriguez@nlcoop.com');
+        // 1. Fetch Real Profile Data using the generated username
+        const profilesRes = await api.getProfiles();
+        let matchedProfile = null;
+        if (profilesRes.data) {
+          // Attempt to match the exact generated username from the backend logic
+          matchedProfile = profilesRes.data.find((p: any) => p.username === userName || p.email === userEmail);
         }
 
-        if (!matchedMember) {
+        if (!matchedProfile) {
           // Fallback if no specific member found in DB for the login
-          matchedMember = {
+          matchedProfile = {
             id: '2',
             first_name: userName.split('.')[0] || 'Maria',
             middle_name: 'Elena',
             last_name: userName.split('.')[1] || 'Rodriguez',
             email: userEmail,
-            cooperative_name: 'Northern Luzon Cooperative',
-            role: 'Secretary'
+            cooperative: 'Northern Luzon Cooperative',
+            position: 'Secretary'
           };
         }
+
+        // 1.5 Fetch Cooperative ID based on actual cooperative name
+        const coopsRes = await api.getCooperatives();
+        const myCoop = coopsRes.data?.find((c: any) => c.name === matchedProfile.cooperative);
+        const finalCoopId = myCoop ? myCoop.id : 'b096da52-5165-48d1-a48b-10dc992ad8b8';
 
         // 2. Fetch Training Registrations
         const regsRes = await api.getTrainingRegistrations();
@@ -103,8 +108,8 @@ const OfficerDashboard = () => {
         // Ensure we handle completed training names if the API returned joined tables (mocking for now if missing)
         const completedTrainingNames = myRegistrations.map((r: any) => r.training?.topic || 'General Training');
 
-        const role = matchedMember.role || 'Regular Member';
-        const required = roleRequirements[role] || roleRequirements['Regular Member'];
+        const role = matchedProfile.position || matchedProfile.role || 'Regular Member';
+        const required = roleRequirements[role] || roleRequirements['Regular Member'] || roleRequirements['Board Member'];
 
         // Determine what is still missing
         const missing = required.filter(req => !completedTrainingNames.some((completed: string) => completed.includes(req) || req.includes(completed)));
@@ -116,13 +121,13 @@ const OfficerDashboard = () => {
         else if (complianceRate >= 50) status = 'partial';
 
         setCurrentOfficer({
-          id: matchedMember.id,
-          first_name: matchedMember.first_name,
-          middle_name: matchedMember.middle_name,
-          last_name: matchedMember.last_name,
-          email: matchedMember.email,
-          cooperative: matchedMember.cooperative_name || matchedMember.cooperative,
-          cooperative_id: matchedMember.cooperative_id || 'b096da52-5165-48d1-a48b-10dc992ad8b8', // Valid UUID
+          id: matchedProfile.id,
+          first_name: matchedProfile.first_name,
+          middle_name: matchedProfile.middle_name || '',
+          last_name: matchedProfile.last_name,
+          email: userEmail,
+          cooperative: matchedProfile.cooperative,
+          cooperative_id: finalCoopId,
           position: role,
           complianceRate,
           status,
@@ -148,12 +153,21 @@ const OfficerDashboard = () => {
 
     setUploadingDoc(docName);
     try {
+      const reader = new FileReader();
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
       const { error } = await api.createComplianceRecord({
-        cooperative_id: currentOfficer.cooperative_id || 'b096da52-5165-48d1-a48b-10dc992ad8b8',
-        requirement_type: 'Regulatory',
+        cooperative_name: currentOfficer.cooperative,
+        cooperative_type: 'Uncategorized',
         requirement_name: docName,
-        description: `Uploaded by ${displayFullName}`,
-        file: file
+        status: 'pending',
+        submitted_date: new Date().toISOString(),
+        reviewed_by: localStorage.getItem('userId') || '',
+        file_url: base64Data
       });
 
       if (error) throw error;
