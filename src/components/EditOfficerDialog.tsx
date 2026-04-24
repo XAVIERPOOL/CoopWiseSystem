@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { REQUIRED_TRAININGS as availableTrainings } from './OfficerCompliance';
 import {
   Dialog,
   DialogContent,
@@ -47,20 +48,9 @@ interface EditOfficerDialogProps {
   onSave: (officer: Officer) => void;
 }
 
-const availableTrainings = [
-  'Financial Management',
-  'Governance Training',
-  'Audit Training',
-  'Risk Management',
-  'Ethics Training',
-  'Leadership Development',
-  'Cooperative Principles',
-  'Member Relations',
-  'Strategic Planning',
-  'Legal Compliance'
-];
-
 const EditOfficerDialog = ({ open, onOpenChange, officer, onSave }: EditOfficerDialogProps) => {
+
+
   const [editedOfficer, setEditedOfficer] = useState<Officer | null>(officer);
   const [assignedTrainings, setAssignedTrainings] = useState<string[]>([]);
 

@@ -99,6 +99,8 @@ const TrainingManagement = () => {
   const [officers, setOfficers] = useState<Officer[]>([]);
   const [listSearch, setListSearch] = useState('');
   const [listFilter, setListFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 6;
 
   const [selectedTrainingEnrollments, setSelectedTrainingEnrollments] = useState<any[]>([]);
   const [selectedTrainingAttendance, setSelectedTrainingAttendance] = useState<any[]>([]);
@@ -296,6 +298,12 @@ const TrainingManagement = () => {
     }).sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
   }, [trainings, listSearch, listFilter]);
 
+  const totalPages = Math.ceil(filteredListTrainings.length / ITEMS_PER_PAGE);
+  const paginatedTrainings = filteredListTrainings.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   const isTrainingOnDay = (training: TrainingWithRegistrations, day: Date) => {
     try {
       const s = parseISO(training.start_date);
@@ -478,10 +486,10 @@ const TrainingManagement = () => {
                   <motion.div key="list" variants={containerVariants} initial="hidden" animate="visible" exit="hidden" className="glass-card p-6 rounded-3xl border border-white/10">
                     <div className="flex flex-col sm:flex-row gap-4 mb-6">
                       <div className="relative flex-1">
-                        <Input className="pl-10 h-11 bg-background/50 rounded-xl" placeholder="Search trainings wildly..." value={listSearch} onChange={e => setListSearch(e.target.value)} />
+                        <Input className="pl-10 h-11 bg-background/50 rounded-xl" placeholder="Search trainings wildly..." value={listSearch} onChange={e => { setListSearch(e.target.value); setCurrentPage(1); }} />
                         <svg className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" /></svg>
                       </div>
-                      <Select value={listFilter} onValueChange={setListFilter}>
+                      <Select value={listFilter} onValueChange={v => { setListFilter(v); setCurrentPage(1); }}>
                         <SelectTrigger className="w-full sm:w-[200px] h-11 bg-background/50 rounded-xl"><SelectValue placeholder="Status" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Modes</SelectItem>
@@ -493,7 +501,7 @@ const TrainingManagement = () => {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                      {filteredListTrainings.map(t => {
+                      {paginatedTrainings.map(t => {
                         const tc = getTopicConfig(t.topic);
                         const fill = t.capacity > 0 ? Math.min(100, Math.round((t.registered / t.capacity) * 100)) : 0;
                         return (
@@ -532,6 +540,50 @@ const TrainingManagement = () => {
                         );
                       })}
                     </div>
+
+                    {totalPages > 1 && (
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 pt-6 border-t border-white/10">
+                        <div className="text-sm text-muted-foreground font-medium">
+                          Showing <span className="text-foreground font-bold">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="text-foreground font-bold">{Math.min(currentPage * ITEMS_PER_PAGE, filteredListTrainings.length)}</span> of <span className="text-foreground font-bold">{filteredListTrainings.length}</span> entries
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-background/50 p-1.5 rounded-2xl border border-white/5 shadow-sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="rounded-xl px-4 font-bold"
+                          >
+                            Previous
+                          </Button>
+                          <div className="flex items-center gap-1 hidden sm:flex">
+                            {Array.from({ length: totalPages }).map((_, i) => (
+                              <Button
+                                key={i}
+                                variant={currentPage === i + 1 ? 'default' : 'ghost'}
+                                size="icon"
+                                className={`w-9 h-9 rounded-xl font-bold transition-all ${currentPage === i + 1 ? 'shadow-glow scale-105' : 'hover:bg-muted'}`}
+                                onClick={() => setCurrentPage(i + 1)}
+                              >
+                                {i + 1}
+                              </Button>
+                            ))}
+                          </div>
+                          <div className="flex sm:hidden font-bold text-sm px-2">
+                            Page {currentPage} of {totalPages}
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="rounded-xl px-4 font-bold"
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

@@ -20,7 +20,7 @@ import { toast } from '@/hooks/use-toast';
 import EditOfficerDialog from '@/components/EditOfficerDialog';
 import { api } from '@/lib/api';
 
-const REQUIRED_TRAININGS = [
+export const REQUIRED_TRAININGS = [
     'Governance',
     'Financial Management',
     'Leadership',
@@ -75,8 +75,8 @@ const OfficerCompliance = () => {
                 let latestDate = '';
 
                 officerAttendance.forEach(att => {
-                    const topic = att.topic || (att.training_title && att.training_title.split('-')[0].trim()); // Best effort guess if topic is missing in result
-                    if (att.topic) completedTopicsMap.add(att.topic);
+                    const topic = att.topic || att.training_topic || (att.training_title && att.training_title.split('-')[0].trim()); // Better extraction logic
+                    if (topic) completedTopicsMap.add(topic);
 
                     if (!latestDate || new Date(att.recorded_at) > new Date(latestDate)) {
                         latestDate = att.recorded_at;
