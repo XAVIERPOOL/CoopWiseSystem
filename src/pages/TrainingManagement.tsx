@@ -85,6 +85,7 @@ const TrainingManagement = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingTraining, setEditingTraining] = useState<TrainingWithRegistrations | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false);
   const [selectedTrainingId, setSelectedTrainingId] = useState<string | null>(null);
@@ -168,6 +169,8 @@ const TrainingManagement = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     if (!formData.title || !formData.start_date || !formData.venue) {
       toast({ title: 'Validation Error', description: 'Please fill required fields', variant: 'destructive' });
       return;
@@ -185,6 +188,7 @@ const TrainingManagement = () => {
       }
     }
 
+    setIsSubmitting(true);
     try {
       const payload = {
         title: formData.title, topic: formData.topic, date: formData.start_date, start_date: formData.start_date,
@@ -204,6 +208,8 @@ const TrainingManagement = () => {
       loadTrainings();
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to save training', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -621,7 +627,10 @@ const TrainingManagement = () => {
                 )}
                 <div className="flex gap-3 ml-auto">
                   <Button type="button" variant="ghost" onClick={() => setCreateDialogOpen(false)} className="rounded-xl">Cancel</Button>
-                  <Button type="submit" className="rounded-xl font-bold bg-primary text-primary-foreground shadow-glow h-10 px-6">Commit Schedule</Button>
+                  <Button type="submit" disabled={isSubmitting} className="rounded-xl font-bold bg-primary text-primary-foreground shadow-glow h-10 px-6">
+                    {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin inline" /> : null}
+                    {isSubmitting ? 'Committing...' : 'Commit Schedule'}
+                  </Button>
                 </div>
               </div>
             </form>

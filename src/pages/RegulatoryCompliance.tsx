@@ -802,7 +802,7 @@ const RegulatoryCompliance = () => {
                                     <SelectItem value="non-compliant" className="font-bold text-rose-700">Set Non-Compliant</SelectItem>
                                   </SelectContent>
                                 </Select>
-                                {record.file_url ? (
+                                {record.file_url && (
                                   <Button
                                     variant="outline"
                                     size="icon"
@@ -812,17 +812,16 @@ const RegulatoryCompliance = () => {
                                   >
                                     <ExternalLink className="h-4 w-4" />
                                   </Button>
-                                ) : (
-                                  <label className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input hover:bg-slate-100 hover:text-slate-900 bg-white h-9 w-9 text-slate-500 shadow-sm" title="Upload Document">
-                                    <input 
-                                      type="file" 
-                                      className="hidden" 
-                                      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-                                      onChange={(e) => handleFileUpload(e, record)} 
-                                    />
-                                    <UploadCloud className="h-4 w-4" />
-                                  </label>
                                 )}
+                                <label className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input hover:bg-slate-100 hover:text-slate-900 bg-white h-9 w-9 text-slate-500 shadow-sm" title={record.file_url ? "Replace Document" : "Upload Document"}>
+                                  <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                                    onChange={(e) => handleFileUpload(e, record)} 
+                                  />
+                                  <UploadCloud className="h-4 w-4" />
+                                </label>
                               </div>
                             </TableCell>
                           </TableRow>
