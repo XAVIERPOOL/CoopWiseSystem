@@ -62,7 +62,16 @@ const ComplianceTracker = () => {
     fetchAdminStats();
   }, []);
 
-  const [officers, setOfficers] = useState<Officer[]>([
+  const [officers, setOfficers] = useState<Officer[]>(() => {
+    const saved = localStorage.getItem('compliance_officers');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse compliance officers from localStorage', e);
+      }
+    }
+    return [
     {
       id: 1,
       name: 'Juan Miguel Santos',
@@ -193,7 +202,12 @@ const ComplianceTracker = () => {
       completedTrainings: 4,
       requiredTrainings: 8
     }
-  ]);
+  ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('compliance_officers', JSON.stringify(officers));
+  }, [officers]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

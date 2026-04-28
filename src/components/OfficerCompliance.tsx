@@ -94,7 +94,7 @@ const OfficerCompliance = () => {
                 if (rate === 100) complianceStatus = 'compliant';
                 else if (rate >= 40) complianceStatus = 'partial';
 
-                return {
+                const baseOfficer = {
                     id: index + 1, // Legacy UI logic expects number id
                     profileId: p.id,
                     name: p.full_name || `${p.first_name} ${p.last_name}`,
@@ -108,6 +108,12 @@ const OfficerCompliance = () => {
                     completedTrainings: completedRequiredCount,
                     requiredTrainings: totalRequired
                 };
+
+                const overrides = JSON.parse(localStorage.getItem('officer_compliance_overrides') || '{}');
+                if (overrides[p.id]) {
+                    return { ...baseOfficer, ...overrides[p.id] };
+                }
+                return baseOfficer;
             });
 
             setOfficers(processedOfficers);
@@ -163,6 +169,15 @@ const OfficerCompliance = () => {
                 officer.id === updatedOfficer.id ? updatedOfficer : officer
             )
         );
+
+        const overrides = JSON.parse(localStorage.getItem('officer_compliance_overrides') || '{}');
+        overrides[updatedOfficer.profileId] = {
+            completedTrainings: updatedOfficer.completedTrainings,
+            missingRequirements: updatedOfficer.missingRequirements,
+            complianceRate: updatedOfficer.complianceRate,
+            status: updatedOfficer.status
+        };
+        localStorage.setItem('officer_compliance_overrides', JSON.stringify(overrides));
     };
 
     const filteredOfficers = officers
