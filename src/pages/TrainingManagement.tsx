@@ -179,7 +179,7 @@ const TrainingManagement = () => {
     // Duplicate Check Safeguard
     if (!editingTraining) {
       const isDuplicate = trainings.some(t => 
-        t.title.toLowerCase().trim() === formData.title.toLowerCase().trim() && 
+        (t.title || '').toLowerCase().trim() === (formData.title || '').toLowerCase().trim() && 
         t.start_date === formData.start_date
       );
       if (isDuplicate) {
@@ -299,7 +299,7 @@ const TrainingManagement = () => {
   const filteredListTrainings = useMemo(() => {
     return trainings.filter(t => {
       const s = listSearch.toLowerCase();
-      return (t.title.toLowerCase().includes(s) || t.venue.toLowerCase().includes(s) || (t.speaker || '').toLowerCase().includes(s)) &&
+      return ((t.title || '').toLowerCase().includes(s) || (t.venue || '').toLowerCase().includes(s) || (t.speaker || '').toLowerCase().includes(s)) &&
              (listFilter === 'all' || t.status === listFilter);
     }).sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
   }, [trainings, listSearch, listFilter]);
