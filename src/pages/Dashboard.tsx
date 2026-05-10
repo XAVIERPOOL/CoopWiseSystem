@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -106,6 +107,7 @@ const Dashboard = () => {
   const [suggestions, setSuggestions] = useState<TrainingSuggestion[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(true);
   
   // Real activities from backend
   const [activities, setActivities] = useState<ActivityItem[]>([]);
@@ -122,9 +124,15 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (userRole !== "officer") {
-      fetchSuggestions();
-      fetchAdminStats();
-      fetchActivities();
+      setLoadingStats(true);
+      Promise.all([
+        fetchSuggestions(),
+        fetchAdminStats(),
+        fetchActivities(),
+        fetchTrainingAttendance()
+      ]).finally(() => {
+        setLoadingStats(false);
+      });
     }
   }, [userRole]);
 
@@ -174,6 +182,29 @@ const Dashboard = () => {
     }
   };
 
+  const fetchTrainingAttendance = async () => {
+    try {
+      const { data, error } = await api.getTrainingsWithMetrics();
+      if (!error && data && data.length > 0) {
+        // Take up to 5 trainings that have registrations to show in the chart
+        const topTrainings = data
+          .filter(t => t.registered > 0)
+          .slice(0, 5)
+          .map(t => ({
+            name: t.title.length > 15 ? t.title.substring(0, 15) + '...' : t.title,
+            registered: Number(t.registered) || 0,
+            attended: Number(t.attended) || 0
+          }));
+        
+        if (topTrainings.length > 0) {
+          setTrainingAttendanceData(topTrainings);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching training attendance:", error);
+    }
+  };
+
   const stats = {
     totalOfficers: adminStats.totalOfficers,
     compliantOfficers: adminStats.compliantOfficers,
@@ -195,13 +226,13 @@ const Dashboard = () => {
     { month: "Dec", thisYear: 28, lastYear: 18 },
   ];
 
-  const trainingAttendanceData = [
+  const [trainingAttendanceData, setTrainingAttendanceData] = useState<any[]>([
     { name: "Ethics", registered: 45, attended: 42 },
     { name: "Finance", registered: 38, attended: 35 },
     { name: "Leadership", registered: 52, attended: 48 },
     { name: "Governance", registered: 30, attended: 28 },
     { name: "Compliance", registered: 65, attended: 58 },
-  ];
+  ]);
 
   const actionItems: ActionItem[] = [
     {
@@ -351,9 +382,13 @@ const Dashboard = () => {
             <CardContent className="p-6 relative z-10">
               <div className="flex flex-col gap-1">
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Cooperatives</p>
-                <p className="text-4xl font-extrabold tracking-tight mt-1 bg-gradient-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent">
-                  {stats.totalCooperatives}
-                </p>
+                {loadingStats ? (
+                  <Skeleton className="h-10 w-24 mt-1 bg-white/10 dark:bg-white/5 rounded-md" />
+                ) : (
+                  <p className="text-4xl font-extrabold tracking-tight mt-1 bg-gradient-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent">
+                    {stats.totalCooperatives}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -366,9 +401,13 @@ const Dashboard = () => {
             <CardContent className="p-6 relative z-10">
               <div className="flex flex-col gap-1">
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Officers</p>
-                <p className="text-4xl font-extrabold tracking-tight mt-1 bg-gradient-to-br from-indigo-400 to-indigo-600 bg-clip-text text-transparent">
-                  {stats.totalOfficers}
-                </p>
+                {loadingStats ? (
+                  <Skeleton className="h-10 w-24 mt-1 bg-white/10 dark:bg-white/5 rounded-md" />
+                ) : (
+                  <p className="text-4xl font-extrabold tracking-tight mt-1 bg-gradient-to-br from-indigo-400 to-indigo-600 bg-clip-text text-transparent">
+                    {stats.totalOfficers}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -382,9 +421,13 @@ const Dashboard = () => {
               <div className="flex flex-col gap-1">
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Compliant Officers</p>
                 <div className="flex items-end justify-between mt-1">
-                  <p className="text-4xl font-extrabold tracking-tight bg-gradient-to-br from-emerald-400 to-emerald-600 bg-clip-text text-transparent">
-                    {stats.compliantOfficers}
-                  </p>
+                  {loadingStats ? (
+                    <Skeleton className="h-10 w-24 bg-white/10 dark:bg-white/5 rounded-md" />
+                  ) : (
+                    <p className="text-4xl font-extrabold tracking-tight bg-gradient-to-br from-emerald-400 to-emerald-600 bg-clip-text text-transparent">
+                      {stats.compliantOfficers}
+                    </p>
+                  )}
                   <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-sm font-semibold mb-1">
                     {stats.totalOfficers > 0 ? Math.round((stats.compliantOfficers / stats.totalOfficers) * 100) : 0}% 
                   </Badge>
@@ -401,9 +444,13 @@ const Dashboard = () => {
             <CardContent className="p-6 relative z-10">
               <div className="flex flex-col gap-1">
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Upcoming Trainings</p>
-                <p className="text-4xl font-extrabold tracking-tight mt-1 bg-gradient-to-br from-purple-400 to-purple-600 bg-clip-text text-transparent">
-                  {stats.upcomingEvents}
-                </p>
+                {loadingStats ? (
+                  <Skeleton className="h-10 w-24 mt-1 bg-white/10 dark:bg-white/5 rounded-md" />
+                ) : (
+                  <p className="text-4xl font-extrabold tracking-tight mt-1 bg-gradient-to-br from-purple-400 to-purple-600 bg-clip-text text-transparent">
+                    {stats.upcomingEvents}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -534,7 +581,19 @@ const Dashboard = () => {
             <CardContent className="p-0 relative">
               <ScrollArea className="h-[300px] w-full">
                 <div className="flex flex-col p-4">
-                  {activities.length > 0 ? (
+                  {loadingStats ? (
+                    <div className="space-y-4 pt-2">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className="flex gap-4">
+                          <Skeleton className="h-10 w-10 rounded-full bg-white/5" />
+                          <div className="space-y-2 flex-1">
+                            <Skeleton className="h-4 w-full bg-white/5" />
+                            <Skeleton className="h-3 w-3/4 bg-white/5" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : activities.length > 0 ? (
                     activities.map((activity, i) => {
                       const details = getActivityIconAndColor(activity.action || activity.type || '');
                       const IconComponent = details.icon;

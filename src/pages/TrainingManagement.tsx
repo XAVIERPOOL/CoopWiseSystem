@@ -38,6 +38,7 @@ interface TrainingWithRegistrations {
   speaker: string;
   status: string;
   registered: number;
+  attended: number;
   target_positions?: string[] | null;
 }
 
@@ -473,7 +474,7 @@ const TrainingManagement = () => {
                                       </div>
                                       <div className="flex items-center justify-between mt-1.5 px-0.5">
                                         <span className="text-[10px] font-bold opacity-70 flex items-center gap-1"><Clock className="w-2.5 h-2.5" />{t.time?.slice(0,5)}</span>
-                                        <span className="text-[10px] font-bold px-1.5 rounded-sm bg-background/50">{t.registered}/{t.capacity}</span>
+                                        <span className="text-[10px] font-bold px-1.5 rounded-sm bg-background/50">R:{t.registered} / A:{Number(t.attended)||0}</span>
                                       </div>
                                       <div className="mt-1.5 h-1 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
                                         <div className="h-full rounded-full transition-all" style={{ width: `${fill}%`, backgroundColor: fill >= 90 ? 'hsl(var(--destructive))' : fill >= 60 ? 'hsl(var(--warning, #eab308))' : 'hsl(var(--primary))' }} />
@@ -533,6 +534,10 @@ const TrainingManagement = () => {
                                 <div className="mt-auto space-y-2 pt-4">
                                   <div className="flex justify-between text-xs font-bold opacity-80"><span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5"/> Seats</span><span>{t.registered} / {t.capacity}</span></div>
                                   <div className="h-2 rounded-full bg-muted/50 overflow-hidden"><div className={`h-full rounded-full`} style={{ width: `${fill}%`, backgroundColor: fill >= 90 ? 'hsl(var(--destructive))' : 'hsl(var(--primary))' }} /></div>
+                                  <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase pt-1">
+                                    <span>Attendance</span>
+                                    <span className={t.status !== 'upcoming' ? "text-foreground" : ""}>{Number(t.attended) || 0} / {t.registered} ({t.registered > 0 ? Math.round(((Number(t.attended) || 0) / t.registered) * 100) : 0}%)</span>
+                                  </div>
                                 </div>
 
                                 <div className="flex gap-2 pt-4 mt-2 border-t border-border/50">

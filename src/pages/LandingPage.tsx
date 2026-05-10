@@ -1,10 +1,14 @@
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, TrendingUp, Shield, BookOpen, ArrowRight, CheckCircle, Truck, Wheat, Factory, Home, Briefcase, Heart } from 'lucide-react';
 import nccdoLogo from '../../attached_assets/462853451_531127746179171_9134722409661138434_n_1762934895081.jpg';
 
 const LandingPage = () => {
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+
   const benefits = [
     {
       icon: Users,
@@ -268,6 +272,23 @@ const LandingPage = () => {
                 </CardContent>
               </Card>
             ))}
+
+            <Card 
+              className="relative overflow-hidden bg-gradient-to-br from-primary to-blue-600 text-primary-foreground border-none shadow-glow hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all duration-300 cursor-pointer flex flex-col justify-center min-h-[220px]"
+              onClick={() => setIsApplyModalOpen(true)}
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-bl-full pointer-events-none" />
+              <CardHeader className="relative z-10 pb-2">
+                <CardTitle className="text-2xl font-black flex items-center gap-2">
+                  Apply Now <ArrowRight className="w-5 h-5"/>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <CardDescription className="text-primary-foreground/90 text-sm leading-relaxed font-medium">
+                  Ready to begin? Click here to view the preparation checklist and start your cooperative application today.
+                </CardDescription>
+              </CardContent>
+            </Card>
           </div>
           
           <div className="text-center mt-14">
@@ -336,6 +357,61 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
+
+      <Dialog open={isApplyModalOpen} onOpenChange={setIsApplyModalOpen}>
+        <DialogContent className="max-w-xl glass-card rounded-3xl border-white/20 p-8 shadow-glow">
+          <DialogHeader>
+            <DialogTitle className="text-2xl md:text-3xl font-black tracking-tight mb-2">Application Preparation</DialogTitle>
+            <DialogDescription className="text-base text-muted-foreground leading-relaxed">
+              Before proceeding to the cooperative registration, please ensure you have prepared the following information and documents:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="flex items-start gap-4 p-4 rounded-2xl bg-background/50 border border-border/50 hover:bg-muted/50 transition-colors">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div>
+                <h4 className="font-bold text-foreground">Proposed Name of Association</h4>
+                <p className="text-sm text-muted-foreground mt-1">Have at least three (3) proposed names ready for your cooperative, ranked by preference.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-4 p-4 rounded-2xl bg-background/50 border border-border/50 hover:bg-muted/50 transition-colors">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div>
+                <h4 className="font-bold text-foreground">List of Founding Members</h4>
+                <p className="text-sm text-muted-foreground mt-1">A minimum of 15 members with their basic contact information, backgrounds, and signatures.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-4 p-4 rounded-2xl bg-background/50 border border-border/50 hover:bg-muted/50 transition-colors">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div>
+                <h4 className="font-bold text-foreground">Core Objectives</h4>
+                <p className="text-sm text-muted-foreground mt-1">A clear statement of your cooperative's primary goals, activities, and the community needs it aims to address.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-4 p-4 rounded-2xl bg-background/50 border border-border/50 hover:bg-muted/50 transition-colors">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div>
+                <h4 className="font-bold text-foreground">Initial Capital Plan</h4>
+                <p className="text-sm text-muted-foreground mt-1">A brief outline of expected member share contributions and basic financial projections.</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-border/50">
+            <Button variant="ghost" onClick={() => setIsApplyModalOpen(false)} className="rounded-xl font-medium">Cancel</Button>
+            <Link to="/login" onClick={() => setIsApplyModalOpen(false)}>
+              <Button className="rounded-xl shadow-glow font-bold px-6">Proceed to Apply <ArrowRight className="ml-2 w-4 h-4"/></Button>
+            </Link>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <footer className="border-t border-border/50 bg-muted/30 py-10 px-4">
         <div className="container mx-auto">

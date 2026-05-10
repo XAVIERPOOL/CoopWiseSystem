@@ -92,6 +92,18 @@ app.get('/api/profiles/:id', async (req, res) => {
 
 app.get('/api/trainings', async (req, res) => {
   try {
+    // Auto-update past trainings to completed
+    await pool.query(`
+      UPDATE trainings 
+      SET status = 'completed' 
+      WHERE (
+        (end_date IS NOT NULL AND end_date < CURRENT_DATE) 
+        OR 
+        (end_date IS NULL AND start_date IS NOT NULL AND start_date < CURRENT_DATE)
+      )
+      AND status IN ('upcoming', 'ongoing')
+    `);
+
     const result = await pool.query('SELECT * FROM trainings ORDER BY start_date DESC');
     res.json(result.rows);
   } catch (error) {
@@ -102,11 +114,25 @@ app.get('/api/trainings', async (req, res) => {
 
 app.get('/api/trainings/with-metrics', async (req, res) => {
   try {
+    // Auto-update past trainings to completed
+    await pool.query(`
+      UPDATE trainings 
+      SET status = 'completed' 
+      WHERE (
+        (end_date IS NOT NULL AND end_date < CURRENT_DATE) 
+        OR 
+        (end_date IS NULL AND start_date IS NOT NULL AND start_date < CURRENT_DATE)
+      )
+      AND status IN ('upcoming', 'ongoing')
+    `);
+
     const result = await pool.query(`
       SELECT t.*,
-        COUNT(DISTINCT tr.id) as registered
+        COUNT(DISTINCT tr.id) as registered,
+        COUNT(DISTINCT att.id) as attended
       FROM trainings t
       LEFT JOIN training_registrations tr ON t.id = tr.training_id
+      LEFT JOIN attendance att ON t.id = att.training_id
       GROUP BY t.id
       ORDER BY t.start_date DESC
     `);
@@ -143,12 +169,17 @@ app.post('/api/trainings', async (req, res) => {
     
     // Handle time: ensure it's null if empty string
     const timeValue = time && time.trim() !== '' ? time : null;
+    
+    // Handle dates: ensure they are null if empty string
+    const dateValue = date && date.trim() !== '' ? date : null;
+    const startDateValue = start_date && start_date.trim() !== '' ? start_date : null;
+    const endDateValue = end_date && end_date.trim() !== '' ? end_date : null;
 
     const result = await client.query(
       `INSERT INTO trainings (training_id, title, topic, date, start_date, end_date, time, venue, speaker, capacity, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
-      [training_id, title, topic, date, start_date, end_date, timeValue, venue, speaker, capacityInt, status || 'upcoming']
+      [training_id, title, topic, dateValue, startDateValue, endDateValue, timeValue, venue, speaker, capacityInt, status || 'upcoming']
     );
 
     // LOG ACTIVITY
