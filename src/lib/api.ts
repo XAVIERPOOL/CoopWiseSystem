@@ -193,6 +193,18 @@ class ApiClient {
     });
   }
 
+  // Training Discussions
+  async getTrainingDiscussions(trainingId: string) {
+    return this.request<any[]>(`/trainings/${trainingId}/discussions`);
+  }
+
+  async createTrainingDiscussion(trainingId: string, discussion: { user_id: string; message: string }) {
+    return this.request<any>(`/trainings/${trainingId}/discussions`, {
+      method: 'POST',
+      body: JSON.stringify(discussion),
+    });
+  }
+
   // ===== COOPERATIVES (Module 1: Cooperative Registration) =====
   async getCooperatives(status?: string) {
     const query = status ? `?status=${status}` : '';

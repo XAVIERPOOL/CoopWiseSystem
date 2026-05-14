@@ -19,14 +19,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 import EditOfficerDialog from '@/components/EditOfficerDialog';
 import { api } from '@/lib/api';
-
-export const REQUIRED_TRAININGS = [
-    'Governance',
-    'Financial Management',
-    'Leadership',
-    'Risk Management',
-    'Compliance'
-];
+import { REQUIRED_TRAININGS } from '@/lib/constants';
 
 interface Officer {
     id: number;

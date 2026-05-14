@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { REQUIRED_TRAININGS as availableTrainings } from './OfficerCompliance';
+import { REQUIRED_TRAININGS as availableTrainings } from '@/lib/constants';
 import {
   Dialog,
   DialogContent,

@@ -12,7 +12,7 @@ import {
   Plus, MapPin, Users, Clock, Edit3, Trash2, Eye, UserPlus, Loader2, ChevronLeft, ChevronRight,
   CheckCircle, Calendar as CalendarIcon, LayoutList, LayoutGrid, TrendingUp, BookOpen,
   DollarSign, Shield, Star, AlertTriangle, CheckSquare, Mic, CalendarDays, BarChart3, ArrowRight,
-  Building2, ShieldCheck, Calendar
+  Building2, ShieldCheck, Calendar, MessageSquare
 } from 'lucide-react';
 import {
   format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
@@ -22,7 +22,9 @@ import { toast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import OfficerCompliance from '@/components/OfficerCompliance';
+import { TrainingDiscussion } from '@/components/TrainingDiscussion';
 
 interface TrainingWithRegistrations {
   id: string;
@@ -109,6 +111,8 @@ const TrainingManagement = () => {
   const [viewEnrolledDialogOpen, setViewEnrolledDialogOpen] = useState(false);
   const [selectedTrainingTitle, setSelectedTrainingTitle] = useState<string>('');
   const [selectedForBulk, setSelectedForBulk] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState('calendar');
+  const [activeDiscussionId, setActiveDiscussionId] = useState<string | null>(null);
 
   const [adminStats, setAdminStats] = useState({
     totalCooperatives: 0,
@@ -410,10 +414,11 @@ const TrainingManagement = () => {
           </div>
         </motion.div>
 
-        <Tabs defaultValue="calendar" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-2 rounded-2xl border border-white/10">
             <TabsList className="bg-transparent h-12">
               <TabsTrigger value="calendar" className="rounded-xl px-5 text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">Training Calendar</TabsTrigger>
+              <TabsTrigger value="discussions" className="rounded-xl px-5 text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">Training Discussions</TabsTrigger>
               <TabsTrigger value="compliance" className="rounded-xl px-5 text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md transition-all">Officer Compliance</TabsTrigger>
             </TabsList>
 
@@ -474,7 +479,12 @@ const TrainingManagement = () => {
                                       </div>
                                       <div className="flex items-center justify-between mt-1.5 px-0.5">
                                         <span className="text-[10px] font-bold opacity-70 flex items-center gap-1"><Clock className="w-2.5 h-2.5" />{t.time?.slice(0,5)}</span>
-                                        <span className="text-[10px] font-bold px-1.5 rounded-sm bg-background/50">R:{t.registered} / A:{Number(t.attended)||0}</span>
+                                        <div className="flex gap-1">
+                                          <Button variant="ghost" size="icon" className="h-5 w-5 rounded-md hover:bg-primary/20" onClick={(e) => { e.stopPropagation(); setActiveDiscussionId(t.id); setSelectedTrainingTitle(t.title); setActiveTab('discussions'); }}>
+                                            <MessageSquare className="w-3 h-3 text-primary" />
+                                          </Button>
+                                          <span className="text-[10px] font-bold px-1.5 rounded-sm bg-background/50">R:{t.registered} / A:{Number(t.attended)||0}</span>
+                                        </div>
                                       </div>
                                       <div className="mt-1.5 h-1 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
                                         <div className="h-full rounded-full transition-all" style={{ width: `${fill}%`, backgroundColor: fill >= 90 ? 'hsl(var(--destructive))' : fill >= 60 ? 'hsl(var(--warning, #eab308))' : 'hsl(var(--primary))' }} />
@@ -542,6 +552,7 @@ const TrainingManagement = () => {
 
                                 <div className="flex gap-2 pt-4 mt-2 border-t border-border/50">
                                   <Button size="sm" variant="ghost" className="flex-1 rounded-xl bg-muted/30 hover:bg-muted" onClick={e => handleEdit(t, e)}>Edit</Button>
+                                  <Button size="sm" variant="ghost" className="flex-1 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary" onClick={() => { setActiveDiscussionId(t.id); setSelectedTrainingTitle(t.title); setActiveTab('discussions'); }}><MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Discuss</Button>
                                   <Button size="sm" variant="outline" className="flex-1 rounded-xl shadow-sm" onClick={() => { setSelectedTrainingId(t.id); setSelectedTrainingTitle(t.title); handleViewEnrolled(t.id); setViewEnrolledDialogOpen(true); }}>Attendees</Button>
                                   <Button size="sm" className="flex-1 rounded-xl shadow-glow bg-primary hover:bg-primary/90 text-primary-foreground font-bold" onClick={() => { setSelectedTrainingId(t.id); setEnrollmentDialogOpen(true); }}>Enroll <ArrowRight className="w-3.5 h-3.5 ml-1"/></Button>
                                 </div>
@@ -599,6 +610,66 @@ const TrainingManagement = () => {
                 )}
               </AnimatePresence>
             )}
+          </TabsContent>
+
+          <TabsContent value="discussions" className="mt-0 outline-none">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Trainings Sidebar */}
+              <div className="lg:col-span-4 space-y-4">
+                <Card className="glass-card border-white/10">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-bold uppercase tracking-wider opacity-70">Active Seminars</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[450px]">
+                      <div className="p-4 space-y-2">
+                        {trainings.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">No trainings available.</div>
+                        ) : (
+                          trainings.map(t => (
+                            <div 
+                              key={t.id}
+                              onClick={() => { setActiveDiscussionId(t.id); setSelectedTrainingTitle(t.title); }}
+                              className={`p-3 rounded-xl cursor-pointer transition-all border ${activeDiscussionId === t.id ? 'bg-primary/10 border-primary/30 shadow-glow ring-1 ring-primary/20' : 'hover:bg-muted/50 border-transparent'}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg ${getTopicConfig(t.topic).bg} ${getTopicConfig(t.topic).color}`}>
+                                  {getTopicConfig(t.topic).icon}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold truncate">{t.title}</p>
+                                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">{format(parseISO(t.start_date), 'MMM d, yyyy')}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Discussion Board Area */}
+              <div className="lg:col-span-8">
+                {activeDiscussionId ? (
+                  <TrainingDiscussion 
+                    trainingId={activeDiscussionId} 
+                    trainingTitle={selectedTrainingTitle} 
+                  />
+                ) : (
+                  <Card className="glass-card h-[500px] flex flex-col items-center justify-center text-center p-8 border-white/10">
+                    <div className="p-6 rounded-full bg-primary/5 mb-4">
+                      <MessageSquare className="w-12 h-12 text-primary opacity-50" />
+                    </div>
+                    <h3 className="text-xl font-bold">Select a Training</h3>
+                    <p className="text-muted-foreground mt-2 max-w-xs">
+                      Choose a training from the list on the left to join the discussion and collaborate with other participants.
+                    </p>
+                  </Card>
+                )}
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="compliance"><OfficerCompliance /></TabsContent>

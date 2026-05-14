@@ -24,13 +24,29 @@ const pool = new Pool({
 
 let dbConnectionError = null;
 
-// Test database connection
-pool.query('SELECT NOW()', (err, res) => {
+// Test database connection and ensure schema exists
+pool.query('SELECT NOW()', async (err, res) => {
   if (err) {
     dbConnectionError = { message: err.message, code: err.code };
     console.error('Database connection error in Neon serverless pool:', err.message, err.code);
   } else {
     console.log('Database connected successfully via Neon Serverless');
+    
+    // Ensure training_discussions table exists
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS training_discussions (
+          id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+          training_id uuid NOT NULL REFERENCES trainings(id) ON DELETE CASCADE,
+          user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+          message text NOT NULL,
+          created_at timestamp with time zone DEFAULT now()
+        )
+      `);
+      console.log('Schema verification: training_discussions table is ready');
+    } catch (schemaErr) {
+      console.error('Error verifying schema:', schemaErr);
+    }
   }
 });
 
@@ -634,6 +650,59 @@ app.post('/api/training-suggestions/:id/implement', async (req, res) => {
     res.status(500).json({ error: 'Failed to implement training suggestion' });
   } finally {
     client.release();
+  }
+});
+
+// ===== TRAINING DISCUSSIONS API =====
+
+app.get('/api/trainings/:training_id/discussions', async (req, res) => {
+  try {
+    const { training_id } = req.params;
+    const result = await pool.query(`
+      SELECT td.*, 
+      TRIM(BOTH ' ' FROM CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)) as user_name,
+      p.role as user_role
+      FROM training_discussions td
+      JOIN profiles p ON td.user_id = p.id
+      WHERE td.training_id = $1
+      ORDER BY td.created_at ASC
+    `, [training_id]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching discussions:', error);
+    res.status(500).json({ error: 'Failed to fetch discussions' });
+  }
+});
+
+app.post('/api/trainings/:training_id/discussions', async (req, res) => {
+  try {
+    const { training_id } = req.params;
+    const { user_id, message } = req.body;
+    
+    if (!user_id || !message) {
+      return res.status(400).json({ error: 'User ID and message are required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO training_discussions (training_id, user_id, message)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [training_id, user_id, message]
+    );
+
+    // Fetch the name for the response
+    const userRes = await pool.query(
+      "SELECT TRIM(BOTH ' ' FROM CONCAT(first_name, ' ', middle_name, ' ', last_name)) as user_name FROM profiles WHERE id = $1",
+      [user_id]
+    );
+    
+    res.status(201).json({
+      ...result.rows[0],
+      user_name: userRes.rows[0]?.user_name || 'Unknown User'
+    });
+  } catch (error) {
+    console.error('Error creating discussion:', error);
+    res.status(500).json({ error: 'Failed to create discussion' });
   }
 });
 
